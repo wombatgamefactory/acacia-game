@@ -291,6 +291,7 @@
         let humanPlayer = null;
         let legalMoves = [];
         let dragState = null;
+        let waitingForHumanMove = false;
 
         const imageCache = {};
 
@@ -307,12 +308,17 @@
                 updateCurrentPlayer();
             } else if (msg.type === 'your_turn') {
                 legalMoves = msg.legal_moves;
+                waitingForHumanMove = true;
                 updateSupply();
                 updateGameStatus('Your turn! Drag a piece to the board.');
+                updateControlsVisibility();
             } else if (msg.type === 'player_assignment') {
                 humanPlayer = msg.human_player;
+                waitingForHumanMove = false;
+                legalMoves = [];
                 updatePlayerLabels();
                 updateGameStatus(`You are ${humanPlayer.toUpperCase()}`);
+                updateControlsVisibility();
             } else if (msg.type === 'game_over') {
                 const winner = msg.winner ? (msg.winner === 'p1' ? 'P1' : 'P2') : 'Draw';
                 const reason = msg.reason === 'four_in_a_row' ? '4-in-a-row' : 'Stalemate';
@@ -588,13 +594,12 @@
 
         function updatePlayerLabels() {
             document.getElementById('humanHint').style.display = humanPlayer ? 'block' : 'none';
-            updateControlsVisibility();
         }
 
         function updateControlsVisibility() {
             const controls = document.getElementById('controls');
-            // Only hide controls if it's the human's turn and we're waiting for input
-            if (humanPlayer !== null && legalMoves.length > 0 && currentState && currentState.current === humanPlayer) {
+            // Only hide controls when actively waiting for human's move
+            if (waitingForHumanMove) {
                 controls.classList.add('hidden');
             } else {
                 controls.classList.remove('hidden');
@@ -662,6 +667,9 @@
                     col: matchingMove.col,
                     piece_type: matchingMove.piece_type
                 }));
+                waitingForHumanMove = false;
+                legalMoves = [];
+                updateControlsVisibility();
                 updateGameStatus('Move sent...');
             }
 
