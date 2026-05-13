@@ -83,5 +83,5 @@ acacia-game/
 - Board size TBC — confirm before implementing GameState
 
 ## Developer
-Dean Morris — dean.a.morris@gmail.com
-Wombat Game Factory — www.wombatgamefactory.com
+Wombat Game Factory — acacia@wombatgamefactory.com
+www.wombatgamefactory.com
