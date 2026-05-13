@@ -240,7 +240,7 @@
 
     <div class="container">
         <div class="board-container">
-            <div class="current-player" id="currentPlayer">P1's turn</div>
+            <div class="current-player" id="currentPlayer">Player 1's turn</div>
             <canvas id="board" width="540" height="540" style="border: 2px solid #444; background: #2a2a2a;"></canvas>
             <div class="controls" id="controls">
                 <button id="btnPlay">Play</button>
@@ -302,6 +302,7 @@
 
         ws.onopen = () => {
             console.log('WebSocket connected');
+            preloadImages();
         };
 
         ws.onmessage = (event) => {
@@ -372,10 +373,48 @@
             });
         }
 
+        function drawImagePreservingAspectRatio(ctx, img, centerX, centerY, maxWidth, maxHeight) {
+            const imgAspect = img.width / img.height;
+            const boxAspect = maxWidth / maxHeight;
+            let drawWidth, drawHeight;
+
+            if (imgAspect > boxAspect) {
+                drawWidth = maxWidth;
+                drawHeight = maxWidth / imgAspect;
+            } else {
+                drawHeight = maxHeight;
+                drawWidth = maxHeight * imgAspect;
+            }
+
+            const x = centerX - drawWidth / 2;
+            const y = centerY - drawHeight / 2;
+            ctx.drawImage(img, x, y, drawWidth, drawHeight);
+        }
+
+        async function preloadImages() {
+            const imageFiles = [
+                '/piece_owl.png',
+                '/piece_squirrel.png',
+                '/piece_koala.png',
+                '/house_blue.png',
+                '/house_red.png',
+                '/game_logo.png'
+            ];
+            for (const src of imageFiles) {
+                try {
+                    await loadImage(src);
+                } catch (e) {
+                    console.warn(`Failed to preload image: ${src}`);
+                }
+            }
+        }
+
 
         async function renderBoard() {
             const canvas = document.getElementById('board');
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { alpha: true });
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             ctx.fillStyle = '#2a2a2a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -427,7 +466,7 @@
                         try {
                             const imagePath = getImagePath(piece);
                             const img = await loadImage(imagePath);
-                            ctx.drawImage(img, cx - PIECE_RADIUS, cy - PIECE_RADIUS, PIECE_RADIUS * 2, PIECE_RADIUS * 2);
+                            drawImagePreservingAspectRatio(ctx, img, cx, cy, PIECE_RADIUS * 2, PIECE_RADIUS * 2);
                         } catch (e) {
                             console.error('Failed to load image:', e);
                             const fallbackColor = piece.piece === 'yellow' ? '#ffdd00' : (piece.player === 'p1' ? '#4499ff' : '#ff6666');
