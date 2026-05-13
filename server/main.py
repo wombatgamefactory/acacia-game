@@ -1,6 +1,7 @@
 import asyncio
 import json
 import random
+import statistics
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 import logging
@@ -66,15 +67,120 @@ def assign_human_player() -> Player:
     return random.choice([Player.P1, Player.P2])
 
 
-def make_bot(bot_type: str, player: Player) -> RandomBot | MCTSBot | None:
+def make_bot(bot_type: str, player: Player, mcts_iterations: int = 200) -> RandomBot | MCTSBot | None:
     if bot_type == "human":
         return None
     elif bot_type == "random":
         return RandomBot(player)
     elif bot_type == "mcts":
-        return MCTSBot(player, iterations=1000)
+        return MCTSBot(player, iterations=mcts_iterations)
     else:
         raise ValueError(f"Unknown bot type: {bot_type}")
+
+
+async def run_analysis(iterations: int, bot1_type: str, bot2_type: str, websocket: WebSocket):
+    loop = asyncio.get_event_loop()
+    # Use lower MCTS iterations (50) for faster analysis
+    bot1 = make_bot(bot1_type, Player.P1, mcts_iterations=50)
+    bot2 = make_bot(bot2_type, Player.P2, mcts_iterations=50)
+
+    logger.info(f"Analysis starting: {iterations} games, {bot1_type} vs {bot2_type}")
+
+    results = {
+        "p1_wins": 0,
+        "p2_wins": 0,
+        "bot_wins": {},  # Track wins by bot type
+        "turns": [],
+        "win_methods": [],  # "four_in_a_row" or "all_pieces"
+        "both_koalas_used": 0,
+    }
+
+    # Initialize bot win tracking
+    results["bot_wins"][bot1_type] = 0
+    results["bot_wins"][bot2_type] = 0
+
+    for i in range(iterations):
+        state = initial_state()
+
+        # Alternate which bot type goes first (if they're different)
+        if bot1_type != bot2_type and i % 2 == 1:
+            # Swap bots for odd-numbered games to alternate first player
+            current_bot1, current_bot2 = bot2, bot1
+            current_bot1_type, current_bot2_type = bot2_type, bot1_type
+        else:
+            current_bot1, current_bot2 = bot1, bot2
+            current_bot1_type, current_bot2_type = bot1_type, bot2_type
+
+        while not is_terminal(state):
+            bot = current_bot1 if state.current == Player.P1 else current_bot2
+            move = await loop.run_in_executor(None, bot.choose_move, state)
+            state = apply_move(state, move)
+
+        # Record results
+        if state.winner == Player.P1:
+            results["p1_wins"] += 1
+            results["bot_wins"][current_bot1_type] += 1
+        elif state.winner == Player.P2:
+            results["p2_wins"] += 1
+            results["bot_wins"][current_bot2_type] += 1
+
+        results["turns"].append(state.turn_number)
+
+        # Determine win method (four_in_a_row if supply > 0, all_pieces if supply == 0)
+        if state.winner:
+            winner_supply = state.supply[0] if state.winner == Player.P1 else state.supply[1]
+            is_all_pieces = (winner_supply.regular == 0 and winner_supply.pusher == 0 and winner_supply.yellow == 0)
+            results["win_methods"].append("all_pieces" if is_all_pieces else "four_in_a_row")
+        else:
+            results["win_methods"].append("stalemate")
+
+        # Check if both koalas were used
+        if state.supply[0].yellow == 0 and state.supply[1].yellow == 0:
+            results["both_koalas_used"] += 1
+
+        # Send progress update after each game
+        try:
+            progress_msg = {
+                "type": "analysis_progress",
+                "completed": i + 1,
+                "total": iterations
+            }
+            await websocket.send_json(progress_msg)
+        except Exception as e:
+            logger.error(f"Error sending progress: {e}")
+
+    # Calculate final statistics
+    total_games = iterations
+    four_in_a_row_wins = sum(1 for m in results["win_methods"] if m == "four_in_a_row")
+
+    # Calculate bot type win percentages
+    bot_type_stats = {}
+    for bot_type, wins in results["bot_wins"].items():
+        bot_type_stats[bot_type] = (wins / total_games) * 100 if total_games > 0 else 0
+
+    stats = {
+        "p1_wins": results["p1_wins"],
+        "p2_wins": results["p2_wins"],
+        "p1_win_pct": (results["p1_wins"] / total_games) * 100,
+        "p2_win_pct": (results["p2_wins"] / total_games) * 100,
+        "bot_type_stats": bot_type_stats,
+        "four_in_a_row_wins": four_in_a_row_wins,
+        "four_in_a_row_pct": (four_in_a_row_wins / total_games) * 100 if total_games > 0 else 0,
+        "avg_turns": sum(results["turns"]) / len(results["turns"]) if results["turns"] else 0,
+        "median_turns": statistics.median(results["turns"]) if results["turns"] else 0,
+        "min_turns": min(results["turns"]) if results["turns"] else 0,
+        "max_turns": max(results["turns"]) if results["turns"] else 0,
+        "both_koalas_used_pct": (results["both_koalas_used"] / total_games) * 100,
+    }
+
+    logger.info(f"Analysis complete. Results: P1={results['p1_wins']} P2={results['p2_wins']}")
+    try:
+        await websocket.send_json({
+            "type": "analysis_complete",
+            "stats": stats
+        })
+    except Exception as e:
+        logger.error(f"Error sending analysis results: {e}")
 
 
 async def broadcast_state(session: GameSession):
@@ -246,6 +352,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     logger.info(f"Bots set: P1={bot1_type}, P2={bot2_type}, Human={session.human_player}")
 
+            elif msg_type == "start_analysis":
+                iterations = data.get("iterations", 20)
+                bot1_type = data.get("bot1", "random")
+                bot2_type = data.get("bot2", "random")
+                logger.info(f"Starting analysis: iterations={iterations}, bot1={bot1_type}, bot2={bot2_type}")
+                analysis_task = asyncio.create_task(run_analysis(iterations, bot1_type, bot2_type, websocket))
+
             elif msg_type == "move":
                 # Human player move
                 try:
@@ -299,4 +412,4 @@ app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
