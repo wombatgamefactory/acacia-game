@@ -111,6 +111,11 @@ async def run_game_loop(session: GameSession):
     session.running = False
 
 
+@app.get("/")
+async def root():
+    return FileResponse(STATIC_DIR / "index.html")
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -204,10 +209,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 await session.game_task
             except asyncio.CancelledError:
                 pass
-
-
-# Mount static files as catch-all after all routes
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 
 
 if __name__ == "__main__":

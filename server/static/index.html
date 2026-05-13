@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acacia Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .container {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+        }
+
+        .board-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        svg {
+            border: 2px solid #444;
+            background: #2a2a2a;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            padding: 15px;
+            background: #222;
+            border-radius: 8px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0052a3;
+        }
+
+        button:active {
+            background: #003d7a;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .speed-control input {
+            width: 100px;
+        }
+
+        .speed-control label {
+            font-size: 14px;
+        }
+
+        .bot-selector {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .bot-selector label {
+            font-size: 14px;
+            min-width: 40px;
+        }
+
+        select {
+            padding: 6px 10px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .supply-panels {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .supply-panel {
+            background: #222;
+            padding: 15px;
+            border-radius: 8px;
+            min-width: 200px;
+        }
+
+        .supply-panel h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .supply-items {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 14px;
+        }
+
+        .supply-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .current-player {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px;
+            background: #222;
+            border-radius: 8px;
+        }
+
+        .current-player.p1 {
+            color: #4499ff;
+        }
+
+        .current-player.p2 {
+            color: #ff6666;
+        }
+
+        .game-status {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px;
+            background: #222;
+            border-radius: 8px;
+            color: #ffaa00;
+        }
+
+        .info-panel {
+            background: #222;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            max-width: 300px;
+        }
+
+        .info-panel h3 {
+            margin-bottom: 10px;
+        }
+
+        .info-panel p {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Acacia</h1>
+
+    <div class="container">
+        <div class="board-container">
+            <div class="current-player" id="currentPlayer">P1's turn</div>
+            <canvas id="board" width="540" height="540" style="border: 2px solid #444; background: #2a2a2a;"></canvas>
+            <div class="controls">
+                <button id="btnPlay">Play</button>
+                <button id="btnPause">Pause</button>
+                <button id="btnStep">Step</button>
+                <button id="btnReset">Reset</button>
+                <div class="speed-control">
+                    <label>Speed (ms):</label>
+                    <input id="speedSlider" type="range" min="100" max="2000" step="100" value="500">
+                </div>
+            </div>
+
+            <div class="bot-selector">
+                <label>P1:</label>
+                <select id="bot1Select">
+                    <option value="random">Random</option>
+                    <option value="mcts">MCTS</option>
+                </select>
+                <label>P2:</label>
+                <select id="bot2Select">
+                    <option value="random">Random</option>
+                    <option value="mcts">MCTS</option>
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <div class="game-status" id="gameStatus">Game running...</div>
+            <div class="supply-panels" id="supplyPanels"></div>
+            <div class="info-panel">
+                <h3>How to Play</h3>
+                <p><strong>Goal:</strong> Form 4-in-a-row or place all pieces</p>
+                <p><strong>Blue:</strong> P1 (Regular circles, house-shaped pushers)</p>
+                <p><strong>Red:</strong> P2 (Regular circles, house-shaped pushers)</p>
+                <p><strong>Yellow:</strong> Koala (breaks lines, can't be ejected)</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CELL_SIZE = 90;
+        const BOARD_SIZE = 6;
+        const PIECE_RADIUS = 30;
+
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        let currentState = null;
+        let gameRunning = false;
+
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+        };
+
+        ws.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'state') {
+                currentState = msg;
+                await renderBoard();
+                updateSupply();
+                updateCurrentPlayer();
+            } else if (msg.type === 'game_over') {
+                const winner = msg.winner ? (msg.winner === 'p1' ? 'P1' : 'P2') : 'Draw';
+                const reason = msg.reason === 'four_in_a_row' ? '4-in-a-row' : 'Stalemate';
+                updateGameStatus(`Game Over! ${winner} wins (${reason})`);
+                gameRunning = false;
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            updateGameStatus('Connection error');
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket closed');
+            updateGameStatus('Disconnected');
+        };
+
+        const imageCache = {};
+
+        function getImagePath(piece) {
+            if (piece.piece === 'regular') {
+                return piece.player === 'p1' ? '/piece_owl.png' : '/piece_squirrel.png';
+            } else if (piece.piece === 'pusher') {
+                return '/piece_house.png';
+            } else if (piece.piece === 'yellow') {
+                return '/piece_koala.png';
+            }
+            return '/piece_owl.png';
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                if (imageCache[src]) {
+                    resolve(imageCache[src]);
+                } else {
+                    const img = new Image();
+                    img.onload = () => {
+                        imageCache[src] = img;
+                        resolve(img);
+                    };
+                    img.onerror = reject;
+                    img.src = src;
+                }
+            });
+        }
+
+        function getTintColor(piece) {
+            if (piece.piece === 'regular' || piece.piece === 'pusher') {
+                return piece.player === 'p1' ? '#4499ff' : '#ff6666';
+            } else if (piece.piece === 'yellow') {
+                return '#ffdd00';
+            }
+            return '#ffffff';
+        }
+
+        function drawColoredImage(ctx, img, x, y, width, height, tintColor) {
+            // Create an off-screen canvas to process the image
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Draw the image on the temporary canvas
+            tempCtx.drawImage(img, 0, 0, width, height);
+
+            // Get image data
+            const imageData = tempCtx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // Parse tint color (hex to RGB)
+            const rgbMatch = tintColor.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+            const tintR = parseInt(rgbMatch[1], 16);
+            const tintG = parseInt(rgbMatch[2], 16);
+            const tintB = parseInt(rgbMatch[3], 16);
+
+            // Replace black pixels with tint color
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3];
+
+                // Check if pixel is black or very dark (RGB all below 50)
+                if (r < 50 && g < 50 && b < 50 && a > 128) {
+                    data[i] = tintR;
+                    data[i + 1] = tintG;
+                    data[i + 2] = tintB;
+                }
+            }
+
+            // Put the modified image data back
+            tempCtx.putImageData(imageData, 0, 0);
+
+            // Draw the processed image onto the main canvas
+            ctx.drawImage(tempCanvas, x, y, width, height);
+        }
+
+        async function renderBoard() {
+            const canvas = document.getElementById('board');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1;
+            for (let r = 0; r <= BOARD_SIZE; r++) {
+                const y = r * CELL_SIZE;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(BOARD_SIZE * CELL_SIZE, y);
+                ctx.stroke();
+            }
+            for (let c = 0; c <= BOARD_SIZE; c++) {
+                const x = c * CELL_SIZE;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, BOARD_SIZE * CELL_SIZE);
+                ctx.stroke();
+            }
+
+            // Draw pieces
+            const pieceMap = {};
+            currentState.board.forEach((piece) => {
+                pieceMap[`${piece.row},${piece.col}`] = piece;
+            });
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const key = `${r},${c}`;
+                    const piece = pieceMap[key];
+
+                    if (piece) {
+                        const cx = c * CELL_SIZE + CELL_SIZE / 2;
+                        const cy = r * CELL_SIZE + CELL_SIZE / 2;
+                        const tintColor = getTintColor(piece);
+
+                        try {
+                            const imagePath = getImagePath(piece);
+                            console.log('Loading image:', imagePath);
+                            const img = await loadImage(imagePath);
+                            console.log('Image loaded:', imagePath);
+                            drawColoredImage(ctx, img, cx - PIECE_RADIUS, cy - PIECE_RADIUS, PIECE_RADIUS * 2, PIECE_RADIUS * 2, tintColor);
+                        } catch (e) {
+                            console.error('Failed to load image, drawing fallback circle:', e);
+                            // Fallback: draw colored circle
+                            ctx.fillStyle = tintColor;
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, PIECE_RADIUS, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.strokeStyle = '#fff';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+
+        function updateSupply() {
+            const container = document.getElementById('supplyPanels');
+            container.innerHTML = `
+        <div class="supply-panel">
+            <h3 style="color: #4499ff;">P1 Supply</h3>
+            <div class="supply-items">
+                <div class="supply-item"><span>Regular:</span> <strong>${currentState.supply.p1.regular}</strong></div>
+                <div class="supply-item"><span>Pusher:</span> <strong>${currentState.supply.p1.pusher}</strong></div>
+                <div class="supply-item"><span>Koala:</span> <strong>${currentState.supply.p1.yellow}</strong></div>
+            </div>
+        </div>
+        <div class="supply-panel">
+            <h3 style="color: #ff6666;">P2 Supply</h3>
+            <div class="supply-items">
+                <div class="supply-item"><span>Regular:</span> <strong>${currentState.supply.p2.regular}</strong></div>
+                <div class="supply-item"><span>Pusher:</span> <strong>${currentState.supply.p2.pusher}</strong></div>
+                <div class="supply-item"><span>Koala:</span> <strong>${currentState.supply.p2.yellow}</strong></div>
+            </div>
+        </div>
+      `;
+        }
+
+        function updateCurrentPlayer() {
+            const elem = document.getElementById('currentPlayer');
+            const playerName = currentState.current === 'p1' ? 'P1' : 'P2';
+            const className = currentState.current === 'p1' ? 'p1' : 'p2';
+            elem.textContent = `${playerName}'s turn`;
+            elem.className = `current-player ${className}`;
+
+            if (currentState.terminal) {
+                if (currentState.winner) {
+                    updateGameStatus(`Game Over! ${currentState.winner.toUpperCase()} wins!`);
+                } else {
+                    updateGameStatus('Game Over! Draw');
+                }
+            }
+        }
+
+        function updateGameStatus(status) {
+            document.getElementById('gameStatus').textContent = status;
+        }
+
+        // Button handlers
+        document.getElementById('btnPlay').addEventListener('click', () => {
+            if (!gameRunning && currentState && !currentState.terminal) {
+                gameRunning = true;
+                ws.send(JSON.stringify({ type: 'control', action: 'play' }));
+                updateGameStatus('Playing...');
+            }
+        });
+
+        document.getElementById('btnPause').addEventListener('click', () => {
+            if (gameRunning) {
+                gameRunning = false;
+                ws.send(JSON.stringify({ type: 'control', action: 'pause' }));
+                updateGameStatus('Paused');
+            }
+        });
+
+        document.getElementById('btnStep').addEventListener('click', () => {
+            if (!gameRunning && currentState && !currentState.terminal) {
+                ws.send(JSON.stringify({ type: 'control', action: 'step' }));
+            }
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            gameRunning = false;
+            ws.send(JSON.stringify({ type: 'control', action: 'reset' }));
+            updateGameStatus('Game reset');
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            const ms = parseInt(e.target.value);
+            ws.send(JSON.stringify({ type: 'control', action: 'set_speed', ms }));
+        });
+
+        document.getElementById('bot1Select').addEventListener('change', (e) => {
+            const bot1 = e.target.value;
+            const bot2 = document.getElementById('bot2Select').value;
+            ws.send(JSON.stringify({ type: 'control', action: 'set_bots', p1: bot1, p2: bot2 }));
+        });
+
+        document.getElementById('bot2Select').addEventListener('change', (e) => {
+            const bot2 = e.target.value;
+            const bot1 = document.getElementById('bot1Select').value;
+            ws.send(JSON.stringify({ type: 'control', action: 'set_bots', p1: bot1, p2: bot2 }));
+        });
+    </script>
+</body>
+</html>
