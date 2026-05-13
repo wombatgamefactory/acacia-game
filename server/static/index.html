@@ -40,9 +40,14 @@
             gap: 20px;
         }
 
-        svg {
+        canvas {
             border: 2px solid #444;
             background: #2a2a2a;
+            cursor: grab;
+        }
+
+        canvas.dragging {
+            cursor: grabbing;
         }
 
         .controls {
@@ -53,6 +58,10 @@
             padding: 15px;
             background: #222;
             border-radius: 8px;
+        }
+
+        .controls.hidden {
+            display: none;
         }
 
         button {
@@ -140,6 +149,41 @@
             justify-content: space-between;
         }
 
+        .draggable-pieces {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .draggable-piece {
+            width: 50px;
+            height: 50px;
+            background: #333;
+            border: 2px solid #555;
+            border-radius: 4px;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            font-size: 24px;
+            transition: opacity 0.2s;
+        }
+
+        .draggable-piece.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .draggable-piece:not(.disabled):hover {
+            border-color: #77ff;
+            background: #444;
+        }
+
+        .draggable-piece:active:not(.disabled) {
+            cursor: grabbing;
+        }
+
         .current-player {
             text-align: center;
             font-size: 16px;
@@ -183,6 +227,7 @@
         .info-panel p {
             margin-bottom: 5px;
         }
+
     </style>
 </head>
 <body>
@@ -192,7 +237,7 @@
         <div class="board-container">
             <div class="current-player" id="currentPlayer">P1's turn</div>
             <canvas id="board" width="540" height="540" style="border: 2px solid #444; background: #2a2a2a;"></canvas>
-            <div class="controls">
+            <div class="controls" id="controls">
                 <button id="btnPlay">Play</button>
                 <button id="btnPause">Pause</button>
                 <button id="btnStep">Step</button>
@@ -208,27 +253,32 @@
                 <select id="bot1Select">
                     <option value="random">Random</option>
                     <option value="mcts">MCTS</option>
+                    <option value="human">Human</option>
                 </select>
                 <label>P2:</label>
                 <select id="bot2Select">
                     <option value="random">Random</option>
                     <option value="mcts">MCTS</option>
+                    <option value="human">Human</option>
                 </select>
             </div>
         </div>
 
         <div>
             <div class="game-status" id="gameStatus">Game running...</div>
+            <button id="playAgainBtn" style="display:none; margin-top: 10px; width: 100%; padding: 12px;">Play Again</button>
             <div class="supply-panels" id="supplyPanels"></div>
             <div class="info-panel">
                 <h3>How to Play</h3>
                 <p><strong>Goal:</strong> Form 4-in-a-row or place all pieces</p>
-                <p><strong>Blue:</strong> P1 (Regular circles, house-shaped pushers)</p>
-                <p><strong>Red:</strong> P2 (Regular circles, house-shaped pushers)</p>
+                <p><strong>Blue:</strong> P1 (Owls & Houses)</p>
+                <p><strong>Red:</strong> P2 (Squirrels & Houses)</p>
                 <p><strong>Yellow:</strong> Koala (breaks lines, can't be ejected)</p>
+                <p id="humanHint" style="display:none; color: #ffff00; margin-top: 10px;"><strong>Drag pieces from your supply to the board!</strong></p>
             </div>
         </div>
     </div>
+
 
     <script>
         const CELL_SIZE = 90;
@@ -238,23 +288,38 @@
         const ws = new WebSocket(`ws://${window.location.host}/ws`);
         let currentState = null;
         let gameRunning = false;
+        let humanPlayer = null;
+        let legalMoves = [];
+        let dragState = null;
+
+        const imageCache = {};
 
         ws.onopen = () => {
             console.log('WebSocket connected');
         };
 
-        ws.onmessage = async (event) => {
+        ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
             if (msg.type === 'state') {
                 currentState = msg;
-                await renderBoard();
+                renderBoard();
                 updateSupply();
                 updateCurrentPlayer();
+            } else if (msg.type === 'your_turn') {
+                legalMoves = msg.legal_moves;
+                updateSupply();
+                updateGameStatus('Your turn! Drag a piece to the board.');
+            } else if (msg.type === 'player_assignment') {
+                humanPlayer = msg.human_player;
+                updatePlayerLabels();
+                updateGameStatus(`You are ${humanPlayer.toUpperCase()}`);
             } else if (msg.type === 'game_over') {
                 const winner = msg.winner ? (msg.winner === 'p1' ? 'P1' : 'P2') : 'Draw';
                 const reason = msg.reason === 'four_in_a_row' ? '4-in-a-row' : 'Stalemate';
                 updateGameStatus(`Game Over! ${winner} wins (${reason})`);
                 gameRunning = false;
+            } else if (msg.type === 'error') {
+                updateGameStatus(`Error: ${msg.message}`);
             }
         };
 
@@ -267,8 +332,6 @@
             console.log('WebSocket closed');
             updateGameStatus('Disconnected');
         };
-
-        const imageCache = {};
 
         function getImagePath(piece) {
             if (piece.piece === 'regular') {
@@ -307,33 +370,27 @@
         }
 
         function drawColoredImage(ctx, img, x, y, width, height, tintColor) {
-            // Create an off-screen canvas to process the image
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = width;
             tempCanvas.height = height;
             const tempCtx = tempCanvas.getContext('2d');
 
-            // Draw the image on the temporary canvas
             tempCtx.drawImage(img, 0, 0, width, height);
 
-            // Get image data
             const imageData = tempCtx.getImageData(0, 0, width, height);
             const data = imageData.data;
 
-            // Parse tint color (hex to RGB)
             const rgbMatch = tintColor.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
             const tintR = parseInt(rgbMatch[1], 16);
             const tintG = parseInt(rgbMatch[2], 16);
             const tintB = parseInt(rgbMatch[3], 16);
 
-            // Replace black pixels with tint color
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
                 const a = data[i + 3];
 
-                // Check if pixel is black or very dark (RGB all below 50)
                 if (r < 50 && g < 50 && b < 50 && a > 128) {
                     data[i] = tintR;
                     data[i + 1] = tintG;
@@ -341,10 +398,7 @@
                 }
             }
 
-            // Put the modified image data back
             tempCtx.putImageData(imageData, 0, 0);
-
-            // Draw the processed image onto the main canvas
             ctx.drawImage(tempCanvas, x, y, width, height);
         }
 
@@ -372,6 +426,18 @@
                 ctx.stroke();
             }
 
+            // Draw legal move highlights (when dragging)
+            if (dragState && legalMoves.length > 0) {
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+                for (const move of legalMoves) {
+                    if (move.piece_type === dragState.pieceType && move.action === dragState.action) {
+                        const x = move.col * CELL_SIZE;
+                        const y = move.row * CELL_SIZE;
+                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+            }
+
             // Draw pieces
             const pieceMap = {};
             currentState.board.forEach((piece) => {
@@ -390,13 +456,10 @@
 
                         try {
                             const imagePath = getImagePath(piece);
-                            console.log('Loading image:', imagePath);
                             const img = await loadImage(imagePath);
-                            console.log('Image loaded:', imagePath);
                             drawColoredImage(ctx, img, cx - PIECE_RADIUS, cy - PIECE_RADIUS, PIECE_RADIUS * 2, PIECE_RADIUS * 2, tintColor);
                         } catch (e) {
                             console.error('Failed to load image, drawing fallback circle:', e);
-                            // Fallback: draw colored circle
                             ctx.fillStyle = tintColor;
                             ctx.beginPath();
                             ctx.arc(cx, cy, PIECE_RADIUS, 0, Math.PI * 2);
@@ -412,24 +475,94 @@
 
         function updateSupply() {
             const container = document.getElementById('supplyPanels');
-            container.innerHTML = `
+            const p1Supply = currentState.supply.p1;
+            const p2Supply = currentState.supply.p2;
+
+            let html = `
         <div class="supply-panel">
-            <h3 style="color: #4499ff;">P1 Supply</h3>
+            <h3 style="color: #4499ff;">P1 Supply ${humanPlayer === 'p1' ? '(You)' : ''}</h3>
             <div class="supply-items">
-                <div class="supply-item"><span>Regular:</span> <strong>${currentState.supply.p1.regular}</strong></div>
-                <div class="supply-item"><span>Pusher:</span> <strong>${currentState.supply.p1.pusher}</strong></div>
-                <div class="supply-item"><span>Koala:</span> <strong>${currentState.supply.p1.yellow}</strong></div>
-            </div>
-        </div>
+                <div class="supply-item"><span>Regular:</span> <strong>${p1Supply.regular}</strong></div>
+                <div class="supply-item"><span>Pusher:</span> <strong>${p1Supply.pusher}</strong></div>
+                <div class="supply-item"><span>Koala:</span> <strong>${p1Supply.yellow}</strong></div>
+            </div>`;
+
+            if (humanPlayer === 'p1' && legalMoves.length > 0) {
+                html += '<div class="draggable-pieces" style="margin-top: 10px;">';
+                if (p1Supply.regular > 0) {
+                    html += '<div class="draggable-piece" data-piece="regular" data-action="place">🦉</div>';
+                } else {
+                    html += '<div class="draggable-piece disabled" data-piece="regular">🦉</div>';
+                }
+                if (p1Supply.pusher > 0) {
+                    const hasPushersToEject = currentState.board.some(p => p.player === 'p2' && p.piece === 'pusher');
+                    if (hasPushersToEject) {
+                        html += '<div class="draggable-piece" data-piece="pusher" data-action="eject">🏠</div>';
+                    } else {
+                        html += '<div class="draggable-piece disabled" data-piece="pusher">🏠</div>';
+                    }
+                } else {
+                    html += '<div class="draggable-piece disabled" data-piece="pusher">🏠</div>';
+                }
+                if (p1Supply.yellow > 0) {
+                    const hasPushersToEject = currentState.board.some(p => p.player === 'p2' && p.piece === 'pusher');
+                    if (hasPushersToEject) {
+                        html += '<div class="draggable-piece" data-piece="yellow" data-action="eject">🐨</div>';
+                    } else {
+                        html += '<div class="draggable-piece disabled" data-piece="yellow">🐨</div>';
+                    }
+                } else {
+                    html += '<div class="draggable-piece disabled" data-piece="yellow">🐨</div>';
+                }
+                html += '</div>';
+            }
+
+            html += `</div>
         <div class="supply-panel">
-            <h3 style="color: #ff6666;">P2 Supply</h3>
+            <h3 style="color: #ff6666;">P2 Supply ${humanPlayer === 'p2' ? '(You)' : ''}</h3>
             <div class="supply-items">
-                <div class="supply-item"><span>Regular:</span> <strong>${currentState.supply.p2.regular}</strong></div>
-                <div class="supply-item"><span>Pusher:</span> <strong>${currentState.supply.p2.pusher}</strong></div>
-                <div class="supply-item"><span>Koala:</span> <strong>${currentState.supply.p2.yellow}</strong></div>
-            </div>
-        </div>
-      `;
+                <div class="supply-item"><span>Regular:</span> <strong>${p2Supply.regular}</strong></div>
+                <div class="supply-item"><span>Pusher:</span> <strong>${p2Supply.pusher}</strong></div>
+                <div class="supply-item"><span>Koala:</span> <strong>${p2Supply.yellow}</strong></div>
+            </div>`;
+
+            if (humanPlayer === 'p2' && legalMoves.length > 0) {
+                html += '<div class="draggable-pieces" style="margin-top: 10px;">';
+                if (p2Supply.regular > 0) {
+                    html += '<div class="draggable-piece" data-piece="regular" data-action="place">🐿️</div>';
+                } else {
+                    html += '<div class="draggable-piece disabled" data-piece="regular">🐿️</div>';
+                }
+                if (p2Supply.pusher > 0) {
+                    const hasPushersToEject = currentState.board.some(p => p.player === 'p1' && p.piece === 'pusher');
+                    if (hasPushersToEject) {
+                        html += '<div class="draggable-piece" data-piece="pusher" data-action="eject">🏠</div>';
+                    } else {
+                        html += '<div class="draggable-piece disabled" data-piece="pusher">🏠</div>';
+                    }
+                } else {
+                    html += '<div class="draggable-piece disabled" data-piece="pusher">🏠</div>';
+                }
+                if (p2Supply.yellow > 0) {
+                    const hasPushersToEject = currentState.board.some(p => p.player === 'p1' && p.piece === 'pusher');
+                    if (hasPushersToEject) {
+                        html += '<div class="draggable-piece" data-piece="yellow" data-action="eject">🐨</div>';
+                    } else {
+                        html += '<div class="draggable-piece disabled" data-piece="yellow">🐨</div>';
+                    }
+                } else {
+                    html += '<div class="draggable-piece disabled" data-piece="yellow">🐨</div>';
+                }
+                html += '</div>';
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+
+            // Attach drag handlers
+            document.querySelectorAll('.draggable-piece:not(.disabled)').forEach(el => {
+                el.addEventListener('mousedown', startDrag);
+            });
         }
 
         function updateCurrentPlayer() {
@@ -439,17 +572,101 @@
             elem.textContent = `${playerName}'s turn`;
             elem.className = `current-player ${className}`;
 
+            updateControlsVisibility();
+
             if (currentState.terminal) {
                 if (currentState.winner) {
                     updateGameStatus(`Game Over! ${currentState.winner.toUpperCase()} wins!`);
                 } else {
                     updateGameStatus('Game Over! Draw');
                 }
+                document.getElementById('playAgainBtn').style.display = 'block';
+            } else {
+                document.getElementById('playAgainBtn').style.display = 'none';
+            }
+        }
+
+        function updatePlayerLabels() {
+            document.getElementById('humanHint').style.display = humanPlayer ? 'block' : 'none';
+            updateControlsVisibility();
+        }
+
+        function updateControlsVisibility() {
+            const controls = document.getElementById('controls');
+            // Only hide controls if it's the human's turn and we're waiting for input
+            if (humanPlayer !== null && legalMoves.length > 0 && currentState && currentState.current === humanPlayer) {
+                controls.classList.add('hidden');
+            } else {
+                controls.classList.remove('hidden');
             }
         }
 
         function updateGameStatus(status) {
             document.getElementById('gameStatus').textContent = status;
+        }
+
+        function startDrag(e) {
+            if (e.button !== 0) return;
+            const el = e.target;
+            dragState = {
+                pieceType: el.dataset.piece,
+                action: el.dataset.action
+            };
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup', onDragDrop);
+            document.getElementById('board').classList.add('dragging');
+            renderBoard();
+        }
+
+        function onDragMove(e) {
+            if (dragState) {
+                renderBoard();
+            }
+        }
+
+        function onDragDrop(e) {
+            document.removeEventListener('mousemove', onDragMove);
+            document.removeEventListener('mouseup', onDragDrop);
+            document.getElementById('board').classList.remove('dragging');
+
+            if (!dragState) return;
+
+            const canvas = document.getElementById('board');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const col = Math.floor(x / CELL_SIZE);
+            const row = Math.floor(y / CELL_SIZE);
+
+            if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+                dragState = null;
+                renderBoard();
+                return;
+            }
+
+            // Check if move is legal
+            const matchingMove = legalMoves.find(m =>
+                m.piece_type === dragState.pieceType &&
+                m.action === dragState.action &&
+                m.row === row &&
+                m.col === col
+            );
+
+            if (matchingMove) {
+                // Immediately apply the move without confirmation
+                ws.send(JSON.stringify({
+                    type: 'move',
+                    action: matchingMove.action,
+                    row: matchingMove.row,
+                    col: matchingMove.col,
+                    piece_type: matchingMove.piece_type
+                }));
+                updateGameStatus('Move sent...');
+            }
+
+            dragState = null;
+            renderBoard();
         }
 
         // Button handlers
@@ -479,6 +696,16 @@
             gameRunning = false;
             ws.send(JSON.stringify({ type: 'control', action: 'reset' }));
             updateGameStatus('Game reset');
+            dragState = null;
+            renderBoard();
+        });
+
+        document.getElementById('playAgainBtn').addEventListener('click', () => {
+            gameRunning = false;
+            ws.send(JSON.stringify({ type: 'control', action: 'reset' }));
+            updateGameStatus('Game reset');
+            dragState = null;
+            renderBoard();
         });
 
         document.getElementById('speedSlider').addEventListener('input', (e) => {

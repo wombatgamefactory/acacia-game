@@ -1,6 +1,7 @@
 import asyncio
 import json
-from dataclasses import dataclass, asdict
+import random
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 import logging
 
@@ -8,7 +9,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from engine import GameState, Player, PieceType, legal_moves, apply_move, is_terminal, initial_state
+from engine import GameState, Player, PieceType, Move, legal_moves, apply_move, is_terminal, initial_state
 from engine.bots import RandomBot, MCTSBot
 
 logging.basicConfig(level=logging.INFO)
@@ -23,12 +24,15 @@ STATIC_DIR = BASE_DIR / "static"
 @dataclass
 class GameSession:
     state: GameState
-    bot_p1: RandomBot | MCTSBot
-    bot_p2: RandomBot | MCTSBot
+    bot_p1: RandomBot | MCTSBot | None
+    bot_p2: RandomBot | MCTSBot | None
     running: bool = False
     speed_ms: float = 500.0
     game_task: asyncio.Task | None = None
     websocket: WebSocket | None = None
+    human_player: Player | None = None
+    human_move_event: asyncio.Event = field(default_factory=asyncio.Event)
+    pending_human_move: Move | None = None
 
 
 def serialize_state(state: GameState) -> dict:
@@ -58,8 +62,14 @@ def serialize_state(state: GameState) -> dict:
     }
 
 
-def make_bot(bot_type: str, player: Player) -> RandomBot | MCTSBot:
-    if bot_type == "random":
+def assign_human_player() -> Player:
+    return random.choice([Player.P1, Player.P2])
+
+
+def make_bot(bot_type: str, player: Player) -> RandomBot | MCTSBot | None:
+    if bot_type == "human":
+        return None
+    elif bot_type == "random":
         return RandomBot(player)
     elif bot_type == "mcts":
         return MCTSBot(player, iterations=1000)
@@ -81,12 +91,34 @@ async def run_game_loop(session: GameSession):
 
     while session.running and not is_terminal(session.state):
         try:
-            await broadcast_state(session)
+            current_player = session.state.current
 
-            bot = session.bot_p1 if session.state.current == Player.P1 else session.bot_p2
-            move = await loop.run_in_executor(None, bot.choose_move, session.state)
+            if current_player == session.human_player:
+                # Human turn — send legal moves and wait for input
+                moves = legal_moves(session.state)
+                if session.websocket:
+                    await session.websocket.send_json({
+                        "type": "your_turn",
+                        "legal_moves": [
+                            {
+                                "action": m.action,
+                                "row": m.row,
+                                "col": m.col,
+                                "piece_type": m.piece_type.name.lower()
+                            }
+                            for m in moves
+                        ]
+                    })
+                session.human_move_event.clear()
+                await session.human_move_event.wait()
+                move = session.pending_human_move
+                session.pending_human_move = None
+            else:
+                # Bot turn
+                bot = session.bot_p1 if current_player == Player.P1 else session.bot_p2
+                move = await loop.run_in_executor(None, bot.choose_move, session.state)
+
             session.state = apply_move(session.state, move)
-
             await broadcast_state(session)
 
             if is_terminal(session.state):
@@ -99,7 +131,9 @@ async def run_game_loop(session: GameSession):
                     await session.websocket.send_json(winner_msg)
                 break
 
-            await asyncio.sleep(session.speed_ms / 1000.0)
+            # Only sleep after bot moves, not after human moves (human controls pacing)
+            if session.human_player is None or current_player != session.human_player:
+                await asyncio.sleep(session.speed_ms / 1000.0)
 
         except asyncio.CancelledError:
             logger.info("Game loop cancelled")
@@ -174,6 +208,13 @@ async def websocket_endpoint(websocket: WebSocket):
                             pass
                         session.game_task = None
                     session.state = initial_state()
+                    # Re-randomize human player if one exists
+                    if session.human_player is not None:
+                        session.human_player = assign_human_player()
+                        await websocket.send_json({
+                            "type": "player_assignment",
+                            "human_player": session.human_player.name.lower()
+                        })
                     await broadcast_state(session)
 
                 elif action == "set_speed":
@@ -184,7 +225,52 @@ async def websocket_endpoint(websocket: WebSocket):
                     bot2_type = data.get("p2", "random")
                     session.bot_p1 = make_bot(bot1_type, Player.P1)
                     session.bot_p2 = make_bot(bot2_type, Player.P2)
-                    logger.info(f"Bots set: P1={bot1_type}, P2={bot2_type}")
+
+                    # Determine if there's a human player and assign randomly
+                    if bot1_type == "human" or bot2_type == "human":
+                        if bot1_type == "human" and bot2_type == "human":
+                            # Both human? Just pick P1 as the human, P2 as random
+                            session.bot_p2 = make_bot("random", Player.P2)
+                            session.human_player = Player.P1
+                        elif bot1_type == "human":
+                            session.human_player = Player.P1
+                        else:
+                            session.human_player = Player.P2
+
+                        await websocket.send_json({
+                            "type": "player_assignment",
+                            "human_player": session.human_player.name.lower()
+                        })
+                    else:
+                        session.human_player = None
+
+                    logger.info(f"Bots set: P1={bot1_type}, P2={bot2_type}, Human={session.human_player}")
+
+            elif msg_type == "move":
+                # Human player move
+                try:
+                    action = data.get("action")
+                    row = int(data.get("row"))
+                    col = int(data.get("col"))
+                    piece_type = PieceType[data.get("piece_type").upper()]
+                    move = Move(action=action, row=row, col=col, piece_type=piece_type)
+
+                    # Validate move is legal
+                    legal = legal_moves(session.state)
+                    if move in legal:
+                        session.pending_human_move = move
+                        session.human_move_event.set()
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Illegal move"
+                        })
+                except Exception as e:
+                    logger.error(f"Error processing move: {e}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": str(e)
+                    })
 
     except WebSocketDisconnect:
         logger.info("WebSocket connection closed")
