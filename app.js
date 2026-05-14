@@ -166,11 +166,13 @@ async function renderBoard() {
 }
 
 function updateSupply() {
-  const container = document.getElementById('supplyPanels');
+  const p1Container = document.getElementById('p1SupplyPanel');
+  const p2Container = document.getElementById('p2SupplyPanel');
   const p1Supply = currentState.supply[0];
   const p2Supply = currentState.supply[1];
 
-  let html = `
+  // Render Player 1 supply (above board)
+  let p1Html = `
     <div class="supply-panel">
         <h3 style="color: #4499ff;">Player 1 Supply ${gameSession.humanPlayer === Player.P1 ? '(You)' : ''}</h3>
         <div class="supply-items">
@@ -179,31 +181,33 @@ function updateSupply() {
             <div class="supply-item"><span>Koala:</span> <strong>${p1Supply.yellow}</strong></div>
         </div>`;
 
-  // Show draggable pieces only when game is running and it's human player's turn
   if (gameRunning && gameSession.humanPlayer === Player.P1 && currentState.current === Player.P1) {
     const moves = legalMoves(currentState);
     if (moves.length > 0) {
-      html += '<div class="draggable-pieces" style="margin-top: 10px;">';
+      p1Html += '<div class="draggable-pieces" style="margin-top: 10px;">';
       if (p1Supply.regular > 0 && moves.some(m => m.pieceType === 'regular' && m.action === 'place')) {
-        html += '<div class="draggable-piece" data-piece="regular" data-action="place"><img src="images/piece_owl.png" alt="Regular piece"></div>';
+        p1Html += '<div class="draggable-piece" data-piece="regular" data-action="place"><img src="images/piece_owl.png" alt="Regular piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="regular"><img src="images/piece_owl.png" alt="Regular piece"></div>';
+        p1Html += '<div class="draggable-piece disabled" data-piece="regular"><img src="images/piece_owl.png" alt="Regular piece"></div>';
       }
       if (p1Supply.pusher > 0 && moves.some(m => m.pieceType === 'pusher' && m.action === 'eject')) {
-        html += '<div class="draggable-piece" data-piece="pusher" data-action="eject"><img src="images/house_blue.png" alt="Pusher piece"></div>';
+        p1Html += '<div class="draggable-piece" data-piece="pusher" data-action="eject"><img src="images/house_blue.png" alt="Pusher piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="pusher"><img src="images/house_blue.png" alt="Pusher piece"></div>';
+        p1Html += '<div class="draggable-piece disabled" data-piece="pusher"><img src="images/house_blue.png" alt="Pusher piece"></div>';
       }
       if (p1Supply.yellow > 0 && moves.some(m => m.pieceType === 'yellow' && m.action === 'eject')) {
-        html += '<div class="draggable-piece" data-piece="yellow" data-action="eject"><img src="images/piece_koala.png" alt="Koala piece"></div>';
+        p1Html += '<div class="draggable-piece" data-piece="yellow" data-action="eject"><img src="images/piece_koala.png" alt="Koala piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="yellow"><img src="images/piece_koala.png" alt="Koala piece"></div>';
+        p1Html += '<div class="draggable-piece disabled" data-piece="yellow"><img src="images/piece_koala.png" alt="Koala piece"></div>';
       }
-      html += '</div>';
+      p1Html += '</div>';
     }
   }
+  p1Html += '</div>';
+  p1Container.innerHTML = p1Html;
 
-  html += `</div>
+  // Render Player 2 supply (below board)
+  let p2Html = `
     <div class="supply-panel">
         <h3 style="color: #ff6666;">Player 2 Supply ${gameSession.humanPlayer === Player.P2 ? '(You)' : ''}</h3>
         <div class="supply-items">
@@ -215,28 +219,27 @@ function updateSupply() {
   if (gameRunning && gameSession.humanPlayer === Player.P2 && currentState.current === Player.P2) {
     const moves = legalMoves(currentState);
     if (moves.length > 0) {
-      html += '<div class="draggable-pieces" style="margin-top: 10px;">';
+      p2Html += '<div class="draggable-pieces" style="margin-top: 10px;">';
       if (p2Supply.regular > 0 && moves.some(m => m.pieceType === 'regular' && m.action === 'place')) {
-        html += '<div class="draggable-piece" data-piece="regular" data-action="place"><img src="images/piece_squirrel.png" alt="Regular piece"></div>';
+        p2Html += '<div class="draggable-piece" data-piece="regular" data-action="place"><img src="images/piece_squirrel.png" alt="Regular piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="regular"><img src="images/piece_squirrel.png" alt="Regular piece"></div>';
+        p2Html += '<div class="draggable-piece disabled" data-piece="regular"><img src="images/piece_squirrel.png" alt="Regular piece"></div>';
       }
       if (p2Supply.pusher > 0 && moves.some(m => m.pieceType === 'pusher' && m.action === 'eject')) {
-        html += '<div class="draggable-piece" data-piece="pusher" data-action="eject"><img src="images/house_red.png" alt="Pusher piece"></div>';
+        p2Html += '<div class="draggable-piece" data-piece="pusher" data-action="eject"><img src="images/house_red.png" alt="Pusher piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="pusher"><img src="images/house_red.png" alt="Pusher piece"></div>';
+        p2Html += '<div class="draggable-piece disabled" data-piece="pusher"><img src="images/house_red.png" alt="Pusher piece"></div>';
       }
       if (p2Supply.yellow > 0 && moves.some(m => m.pieceType === 'yellow' && m.action === 'eject')) {
-        html += '<div class="draggable-piece" data-piece="yellow" data-action="eject"><img src="images/piece_koala.png" alt="Koala piece"></div>';
+        p2Html += '<div class="draggable-piece" data-piece="yellow" data-action="eject"><img src="images/piece_koala.png" alt="Koala piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="yellow"><img src="images/piece_koala.png" alt="Koala piece"></div>';
+        p2Html += '<div class="draggable-piece disabled" data-piece="yellow"><img src="images/piece_koala.png" alt="Koala piece"></div>';
       }
-      html += '</div>';
+      p2Html += '</div>';
     }
   }
-
-  html += '</div>';
-  container.innerHTML = html;
+  p2Html += '</div>';
+  p2Container.innerHTML = p2Html;
 
   // Attach drag handlers
   document.querySelectorAll('.draggable-piece:not(.disabled)').forEach(el => {
@@ -490,21 +493,18 @@ document.getElementById('modeSelect').addEventListener('change', (e) => {
 });
 
 function updateModeUI() {
-  const boardContainer = document.querySelector('.board-container');
-  const supplyPanels = document.getElementById('supplyPanels');
+  const boardWithSupply = document.querySelector('.board-with-supply');
   const analysePanel = document.getElementById('analysePanel');
   const infoPanel = document.querySelector('.info-panel');
   const humanOptions = document.querySelectorAll('option[value="human"]');
 
   if (currentMode === 'watch') {
-    boardContainer.style.display = 'flex';
-    supplyPanels.style.display = 'flex';
+    boardWithSupply.style.display = 'flex';
     analysePanel.classList.remove('visible');
     infoPanel.style.display = 'block';
     humanOptions.forEach(opt => opt.disabled = false);
   } else {
-    boardContainer.style.display = 'none';
-    supplyPanels.style.display = 'none';
+    boardWithSupply.style.display = 'none';
     analysePanel.classList.add('visible');
     infoPanel.style.display = 'none';
     humanOptions.forEach(opt => opt.disabled = true);

@@ -51,6 +51,13 @@
             align-items: flex-start;
         }
 
+        .board-with-supply {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
         .board-container {
             display: flex;
             flex-direction: column;
@@ -145,8 +152,8 @@
 
         .supply-panels {
             display: flex;
-            gap: 20px;
             justify-content: center;
+            width: 100%;
         }
 
         .supply-panel {
@@ -654,24 +661,29 @@
     </div>
 
     <div class="container">
-        <div class="board-container">
-            <div class="current-player" id="currentPlayer">Player 1's turn</div>
-            <div class="game-status" id="gameStatus">Game ready</div>
-            <button id="playAgainBtn" style="display:none; margin-top: 10px; width: 100%; padding: 12px;">Play Again</button>
-            <canvas id="board" width="540" height="540" style="border: 2px solid #444; background: #ffffff;"></canvas>
-            <div class="controls" id="controls">
-                <button id="btnPause">Pause</button>
-                <button id="btnStep">Step</button>
-                <button id="btnReset">Reset</button>
-                <div class="speed-control">
-                    <label>Speed (ms):</label>
-                    <input id="speedSlider" type="range" min="100" max="2000" step="100" value="500">
+        <div class="board-with-supply">
+            <div class="supply-panels" id="p1SupplyPanel"></div>
+
+            <div class="board-container">
+                <div class="current-player" id="currentPlayer">Player 1's turn</div>
+                <div class="game-status" id="gameStatus">Game ready</div>
+                <button id="playAgainBtn" style="display:none; margin-top: 10px; width: 100%; padding: 12px;">Play Again</button>
+                <canvas id="board" width="540" height="540" style="border: 2px solid #444; background: #ffffff;"></canvas>
+                <div class="controls" id="controls">
+                    <button id="btnPause">Pause</button>
+                    <button id="btnStep">Step</button>
+                    <button id="btnReset">Reset</button>
+                    <div class="speed-control">
+                        <label>Speed (ms):</label>
+                        <input id="speedSlider" type="range" min="100" max="2000" step="100" value="500">
+                    </div>
                 </div>
             </div>
+
+            <div class="supply-panels" id="p2SupplyPanel"></div>
         </div>
 
         <div>
-            <div class="supply-panels" id="supplyPanels"></div>
 
             <div class="analyse-panel" id="analysePanel">
                 <h3>Game Analysis</h3>
