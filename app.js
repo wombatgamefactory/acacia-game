@@ -348,6 +348,12 @@ function onDragDrop(e) {
     y = e.clientY - rect.top;
   }
 
+  // Scale coordinates to canvas internal size (account for CSS scaling on mobile)
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  x *= scaleX;
+  y *= scaleY;
+
   const col = Math.floor(x / CELL_SIZE);
   const row = Math.floor(y / CELL_SIZE);
 
