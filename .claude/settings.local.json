@@ -3,7 +3,8 @@
     "allow": [
       "Bash(Get-ChildItem -Path \"s:\\\\Dropbox\\\\dev\\\\Cardboard\\\\github\\\\acacia-game\\\\server\\\\static\\\\\" -Include \"*.png\" | Select-Object Name)",
       "PowerShell(New-Item -ItemType Directory -Force -Path \"s:\\\\Dropbox\\\\dev\\\\Cardboard\\\\github\\\\acacia-game\\\\js\\\\engine\")",
-      "PowerShell(New-Item -ItemType Directory -Force -Path \"s:\\\\Dropbox\\\\dev\\\\Cardboard\\\\github\\\\acacia-game\\\\images\")"
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"s:\\\\Dropbox\\\\dev\\\\Cardboard\\\\github\\\\acacia-game\\\\images\")",
+      "WebFetch(domain:www.wombatgamefactory.com)"
     ]
   }
 }
