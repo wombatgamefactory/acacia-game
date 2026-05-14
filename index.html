@@ -644,6 +644,8 @@
     <div class="container">
         <div class="board-container">
             <div class="current-player" id="currentPlayer">Player 1's turn</div>
+            <div class="game-status" id="gameStatus">Game ready</div>
+            <button id="playAgainBtn" style="display:none; margin-top: 10px; width: 100%; padding: 12px;">Play Again</button>
             <canvas id="board" width="540" height="540" style="border: 2px solid #444; background: #2a2a2a;"></canvas>
             <div class="controls" id="controls">
                 <button id="btnPause">Pause</button>
@@ -657,8 +659,6 @@
         </div>
 
         <div>
-            <div class="game-status" id="gameStatus">Game ready</div>
-            <button id="playAgainBtn" style="display:none; margin-top: 10px; width: 100%; padding: 12px;">Play Again</button>
             <div class="supply-panels" id="supplyPanels"></div>
 
             <div class="analyse-panel" id="analysePanel">
