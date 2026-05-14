@@ -536,6 +536,42 @@
           color: var(--copper-light);
         }
 
+        /* ── Breadcrumb ── */
+        .breadcrumb-bar {
+          border-bottom: 1px solid var(--border);
+          padding: 0.9rem 0;
+          background: var(--bg-mid);
+        }
+
+        .breadcrumb {
+          font-family: 'Oswald', sans-serif;
+          font-size: 0.72rem;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+        }
+
+        .breadcrumb a {
+          color: var(--text-muted);
+          text-decoration: none;
+          transition: color 0.2s;
+        }
+
+        .breadcrumb a:hover {
+          color: var(--copper-light);
+        }
+
+        .breadcrumb-sep {
+          color: var(--border-light);
+        }
+
+        .breadcrumb-current {
+          color: var(--cream);
+        }
+
         /* Mobile: 768px and below */
         @media (max-width: 768px) {
             .nav-links {
@@ -739,15 +775,25 @@
                     Wombat <span>Game Factory</span>
                 </a>
                 <ul class="nav-links">
-                    <li><a href="https://www.wombatgamefactory.com/">Home</a></li>
                     <li><a href="https://www.wombatgamefactory.com/#games">Games</a></li>
                     <li><a href="https://www.wombatgamefactory.com/#about">About</a></li>
                     <li><a href="https://www.wombatgamefactory.com/#contact">Contact</a></li>
-                    <li><a href="https://www.wombatgamefactory.com/games/acacia.html" class="current">Acacia</a></li>
                 </ul>
             </div>
         </div>
     </nav>
+
+    <div class="breadcrumb-bar">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="https://www.wombatgamefactory.com/">Home</a>
+                <span class="breadcrumb-sep">›</span>
+                <a href="https://www.wombatgamefactory.com/#games">Games</a>
+                <span class="breadcrumb-sep">›</span>
+                <span class="breadcrumb-current">Acacia</span>
+            </div>
+        </div>
+    </div>
 
     <main>
         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
