@@ -14,6 +14,18 @@ class GameSession {
 
   reset() {
     this.state = initialState();
+    // Randomize starting player if a human is playing
+    if (this.humanPlayer) {
+      const startingPlayer = Math.random() < 0.5 ? Player.P1 : Player.P2;
+      this.state = createGameState(
+        this.state.board,
+        this.state.supply,
+        startingPlayer,
+        this.state.turnNumber,
+        this.state.winner,
+        this.state.isFirstMove
+      );
+    }
     this.running = false;
     this.waitingForHuman = false;
     this.pendingMove = null;
