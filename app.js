@@ -11,6 +11,7 @@ let currentMode = 'watch';
 let isAnalysing = false;
 let dragState = null;
 let imageCache = {};
+let mctsCThinkTime = 200;
 
 // Initialize on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -444,6 +445,13 @@ document.getElementById('playAgainBtn').addEventListener('click', () => {
 
 document.getElementById('speedSlider').addEventListener('input', (e) => {
   gameSession.speedMs = parseInt(e.target.value);
+});
+
+document.getElementById('thinkTimeSlider').addEventListener('input', (e) => {
+  mctsCThinkTime = parseInt(e.target.value);
+  document.getElementById('thinkTimeValue').textContent = mctsCThinkTime;
+  // Update bots if they exist
+  gameSession.setMCTSThinkTime(mctsCThinkTime);
 });
 
 document.getElementById('bot1Select').addEventListener('change', (e) => {

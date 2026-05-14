@@ -22,11 +22,13 @@ try {
   throw err;
 }
 
-function makeBot(botType, player) {
+function makeBot(botType, player, mctsThinkTime) {
   if (botType === 'random') {
     return new RandomBot(player);
   } else if (botType === 'mcts') {
-    return new MCTSBot(player, 50); // Reduced iterations for faster analysis
+    // Use reduced iterations for faster analysis (1/4 of normal think time)
+    const analysisIterations = Math.max(50, Math.floor(mctsThinkTime / 4));
+    return new MCTSBot(player, analysisIterations);
   } else {
     throw new Error(`Unknown bot type: ${botType}`);
   }
@@ -41,7 +43,7 @@ function median(arr) {
 
 self.onmessage = function(e) {
   console.log('[Worker] Received message:', e.data);
-  const { iterations, bot1Type, bot2Type } = e.data;
+  const { iterations, bot1Type, bot2Type, mctsThinkTime } = e.data;
 
   const results = {
     p1Wins: 0,
@@ -57,8 +59,8 @@ self.onmessage = function(e) {
 
   for (let i = 0; i < iterations; i++) {
     let state = initialState();
-    let bot1 = makeBot(bot1Type, Player.P1);
-    let bot2 = makeBot(bot2Type, Player.P2);
+    let bot1 = makeBot(bot1Type, Player.P1, mctsThinkTime);
+    let bot2 = makeBot(bot2Type, Player.P2, mctsThinkTime);
 
     // Alternate first player for fairness
     let currentBot1 = bot1;

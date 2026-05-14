@@ -646,6 +646,9 @@
                 <option value="mcts">MCTS</option>
                 <option value="human">Human</option>
             </select>
+            <label style="margin-left: 20px;">Think Time:</label>
+            <input type="range" id="thinkTimeSlider" min="100" max="1000" step="50" value="200" style="width: 100px;">
+            <span id="thinkTimeValue" style="margin-left: 5px; min-width: 40px;">200</span>
         </div>
         <button id="btnPlay" style="margin-left: 40px;">Play</button>
     </div>

@@ -7,6 +7,7 @@ class GameSession {
     this.botP2 = new RandomBot(Player.P2);
     this.running = false;
     this.speedMs = 500;
+    this.mctsThinkTime = 200;
     this.humanPlayer = null; // null | Player.P1 | Player.P2
     this.pendingMove = null; // null | Move
     this.waitingForHuman = false;
@@ -71,10 +72,20 @@ class GameSession {
     } else if (botType === 'random') {
       return new RandomBot(player);
     } else if (botType === 'mcts') {
-      // Higher iterations for stronger play
-      return new MCTSBot(player, 500);
+      return new MCTSBot(player, this.mctsThinkTime);
     } else {
       throw new Error(`Unknown bot type: ${botType}`);
+    }
+  }
+
+  setMCTSThinkTime(thinkTime) {
+    this.mctsThinkTime = thinkTime;
+    // Recreate bots with new think time if they're MCTS
+    if (this.botP1 && this.botP1 instanceof MCTSBot) {
+      this.botP1 = new MCTSBot(Player.P1, thinkTime);
+    }
+    if (this.botP2 && this.botP2 instanceof MCTSBot) {
+      this.botP2 = new MCTSBot(Player.P2, thinkTime);
     }
   }
 }
