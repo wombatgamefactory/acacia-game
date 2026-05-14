@@ -177,8 +177,8 @@ function updateSupply() {
             <div class="supply-item"><span>Koala:</span> <strong>${p1Supply.yellow}</strong></div>
         </div>`;
 
-  // Show draggable pieces only when it's human player's turn
-  if (gameSession.humanPlayer === Player.P1 && currentState.current === Player.P1) {
+  // Show draggable pieces only when game is running and it's human player's turn
+  if (gameRunning && gameSession.humanPlayer === Player.P1 && currentState.current === Player.P1) {
     const moves = legalMoves(currentState);
     if (moves.length > 0) {
       html += '<div class="draggable-pieces" style="margin-top: 10px;">';
@@ -210,7 +210,7 @@ function updateSupply() {
             <div class="supply-item"><span>Koala:</span> <strong>${p2Supply.yellow}</strong></div>
         </div>`;
 
-  if (gameSession.humanPlayer === Player.P2 && currentState.current === Player.P2) {
+  if (gameRunning && gameSession.humanPlayer === Player.P2 && currentState.current === Player.P2) {
     const moves = legalMoves(currentState);
     if (moves.length > 0) {
       html += '<div class="draggable-pieces" style="margin-top: 10px;">';
@@ -289,6 +289,7 @@ function updateGameStatus(status) {
 
 function startDrag(e) {
   if (e.button !== 0) return;
+  if (!gameRunning) return;
   const el = e.target;
   dragState = {
     pieceType: el.dataset.piece,
