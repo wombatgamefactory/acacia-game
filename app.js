@@ -244,6 +244,7 @@ function updateSupply() {
   // Attach drag handlers
   document.querySelectorAll('.draggable-piece:not(.disabled)').forEach(el => {
     el.addEventListener('mousedown', startDrag);
+    el.addEventListener('touchstart', startDrag);
   });
 }
 
@@ -293,7 +294,7 @@ function updateGameStatus(status) {
 // ============ Drag and Drop ============
 
 function startDrag(e) {
-  if (e.button !== 0) return;
+  if (e.type === 'mousedown' && e.button !== 0) return;
   if (!gameRunning) return;
   e.preventDefault();
   let el = e.target;
@@ -307,12 +308,18 @@ function startDrag(e) {
   };
   document.addEventListener('mousemove', onDragMove);
   document.addEventListener('mouseup', onDragDrop);
+  document.addEventListener('touchmove', onDragMove, { passive: false });
+  document.addEventListener('touchend', onDragDrop);
+  document.body.style.overflow = 'hidden';
   document.getElementById('board').classList.add('dragging');
   renderBoard();
 }
 
 function onDragMove(e) {
   if (dragState) {
+    if (e.type.startsWith('touch')) {
+      e.preventDefault();
+    }
     renderBoard();
   }
 }
@@ -320,14 +327,26 @@ function onDragMove(e) {
 function onDragDrop(e) {
   document.removeEventListener('mousemove', onDragMove);
   document.removeEventListener('mouseup', onDragDrop);
+  document.removeEventListener('touchmove', onDragMove);
+  document.removeEventListener('touchend', onDragDrop);
+  document.body.style.overflow = '';
+
   document.getElementById('board').classList.remove('dragging');
 
   if (!dragState) return;
 
   const canvas = document.getElementById('board');
   const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+
+  let x, y;
+  if (e.type.startsWith('touch')) {
+    const touch = e.changedTouches[0];
+    x = touch.clientX - rect.left;
+    y = touch.clientY - rect.top;
+  } else {
+    x = e.clientX - rect.left;
+    y = e.clientY - rect.top;
+  }
 
   const col = Math.floor(x / CELL_SIZE);
   const row = Math.floor(y / CELL_SIZE);
