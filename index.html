@@ -572,6 +572,15 @@
           color: var(--cream);
         }
 
+        a.breadcrumb-current {
+          color: var(--cream);
+          text-decoration: none;
+        }
+
+        a.breadcrumb-current:hover {
+          color: var(--copper-light);
+        }
+
         /* Mobile: 768px and below */
         @media (max-width: 768px) {
             .nav-links {
@@ -790,7 +799,7 @@
                 <span class="breadcrumb-sep">›</span>
                 <a href="https://www.wombatgamefactory.com/#games">Games</a>
                 <span class="breadcrumb-sep">›</span>
-                <span class="breadcrumb-current">Acacia</span>
+                <a href="https://www.wombatgamefactory.com/games/acacia.html" class="breadcrumb-current">Acacia</a>
             </div>
         </div>
     </div>
