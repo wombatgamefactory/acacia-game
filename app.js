@@ -291,7 +291,11 @@ function updateGameStatus(status) {
 function startDrag(e) {
   if (e.button !== 0) return;
   if (!gameRunning) return;
-  const el = e.target;
+  let el = e.target;
+  // If clicked on image, get parent draggable-piece div
+  if (el.tagName === 'IMG') {
+    el = el.closest('.draggable-piece');
+  }
   dragState = {
     pieceType: el.dataset.piece,
     action: el.dataset.action
