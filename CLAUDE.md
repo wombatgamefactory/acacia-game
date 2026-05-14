@@ -47,41 +47,75 @@ B. Eject and replace
 **Board**: 6×6 grid
 
 ## Tech stack
-- Python 3.13
-- FastAPI + uvicorn (WebSocket server for watch mode)
-- Anthropic Python SDK (Claude API bots)
-- Minimal HTML/JS frontend (renders board state from JSON, no game logic in JS)
+- Pure JavaScript (ES6+) — no build step, plain script tags
+- HTML5 Canvas for board rendering
+- Web Workers for batch analysis simulations
+- No server required — runs completely in browser
 
 ## Project structure
 acacia-game/
-├── engine/
-│   ├── init.py
-│   ├── game.py       # GameState, legal_moves(), apply_move(), is_terminal()
-│   └── bots.py       # RandomBot, MCTSBot, ClaudeBot
-├── server/
-│   ├── main.py       # FastAPI + WebSocket server, streams state to browser
-│   └── static/
-│       └── index.html  # Board renderer + play/pause/speed controls
-├── simulate.py       # Headless batch simulation runner, collects win/score stats
-├── requirements.txt
+├── js/
+│   ├── engine/
+│   │   ├── constants.js   # PieceType, Player enums
+│   │   ├── game.js        # Core logic: board, moves, win conditions
+│   │   └── bots.js        # RandomBot, MCTSBot
+│   ├── session.js         # Game session state management
+│   ├── gameloop.js        # Play/pause/step, human move handling
+│   ├── analysis.js        # Analysis mode wrapper (spawns Web Worker)
+│   ├── analysis-worker.js # Web Worker: batch simulations
+│   └── utils.js           # Helpers: serialization, median, etc.
+├── images/
+│   ├── game_logo.png
+│   ├── piece_owl.png, piece_squirrel.png, piece_koala.png
+│   └── house_blue.png, house_red.png
+├── index.html             # Main page (Canvas + controls)
+├── app.js                 # UI glue: event handlers, rendering
 ├── CLAUDE.md
+├── CONVERT_ACACIA_TO_JS.md  # Conversion specification document
 └── README.md
 
 ## Key design principles
-- The game engine (engine/game.py) is completely decoupled from the server and UI
-- Game state is a pure Python dataclass — no side effects, no I/O
-- apply_move() is a pure function: returns new state, never mutates existing state
-- The JS frontend is read-only — it only renders state received from the server
-  and sends move commands back; all logic lives in Python
-- The same engine powers both watch mode and headless simulation
-- Board is 6×6 (36 spaces total)
+- Pure functional game engine (js/engine/game.js) with frozen immutable objects
+- Game state never mutates in place; applyMove() returns new state
+- Board is a flat 36-element array (6×6 grid), indexed as `row * 6 + col`
+- Cells are `null` or `{player, pieceType}` objects
+- Bots (RandomBot, MCTSBot) operate on frozen game state — suitable for Monte Carlo simulation
+- GameSession manages mutable UI state (running flag, speed, human player)
+- Web Workers isolate analysis mode to keep UI responsive
+- All logic in browser — no server needed, works from `file://` (with some browser restrictions on Web Workers)
+
+## Running the game
+
+### Local browser (file://)
+```bash
+# Open index.html directly in your browser (no server needed)
+# Note: Web Workers may not work from file:// in Chrome. Use Firefox or run a local server.
+```
+
+### With local server
+```bash
+# Python 3.6+
+python -m http.server 8000
+
+# Then open: http://localhost:8000
+```
 
 ## Development approach
-- Start by fully implementing engine/game.py before touching server or frontend
-- Use RandomBot vs RandomBot to verify basic game flow first
-- Add win condition checking early and test thoroughly before adding AI bots
-- Board size TBC — confirm before implementing GameState
+- Game logic is self-contained in js/engine/ with no dependencies
+- Test engine functions directly in browser console: `legalMoves(state)`, `applyMove(state, move)`, etc.
+- Bots can be tested independently: `const bot = new RandomBot(Player.P1); bot.chooseMove(state)`
+- Watch mode: bot vs bot, configurable speeds, step-by-step execution
+- Analysis mode: runs 100s of games headless in a Web Worker, reports win rates and statistics
+- Human player mode: drag pieces from supply to board, move validation happens server-side (now client-side)
 
 ## Developer
 Wombat Game Factory — acacia@wombatgamefactory.com
 www.wombatgamefactory.com
+
+## Conversion History
+- **2026-05-14**: Converted from Python FastAPI + WebSocket to pure JavaScript
+  - All game logic (js/engine/) working
+  - Both RandomBot and MCTSBot ported
+  - Web Worker for analysis mode
+  - Human player mode with drag-and-drop interface
+  - Now runs 100% in browser, deployable to GitHub Pages
