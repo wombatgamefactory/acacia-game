@@ -14,6 +14,7 @@ let imageCache = {};
 
 // Initialize on load
 window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('versionNumber').textContent = APP_VERSION;
   preloadImages();
   renderBoard();
   updateSupply();
