@@ -265,12 +265,19 @@ function updateCurrentPlayer() {
 }
 
 function updateControlsVisibility() {
-  const controls = document.getElementById('controls');
-  // Only hide controls when waiting for human's move
+  // Disable game control buttons during human's turn (they can still pause/reset)
+  const btnPlay = document.getElementById('btnPlay');
+  const btnStep = document.getElementById('btnStep');
+  const speedSlider = document.getElementById('speedSlider');
+
   if (gameSession.waitingForHuman) {
-    controls.classList.add('hidden');
+    btnPlay.disabled = true;
+    btnStep.disabled = true;
+    speedSlider.disabled = true;
   } else {
-    controls.classList.remove('hidden');
+    btnPlay.disabled = false;
+    btnStep.disabled = gameRunning || isTerminal(currentState);
+    speedSlider.disabled = false;
   }
 }
 
@@ -332,7 +339,7 @@ function onDragDrop(e) {
   if (matchingMove) {
     try {
       gameSession.submitHumanMove(matchingMove);
-      updateGameStatus('Move sent...');
+      updateGameStatus('Move sent. Waiting for opponent...');
     } catch (err) {
       updateGameStatus(`Error: ${err.message}`);
     }
