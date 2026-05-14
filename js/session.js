@@ -71,8 +71,8 @@ class GameSession {
     } else if (botType === 'random') {
       return new RandomBot(player);
     } else if (botType === 'mcts') {
-      // Use reduced iterations for browser (full 200 only in analysis worker)
-      return new MCTSBot(player, 100);
+      // Higher iterations for stronger play
+      return new MCTSBot(player, 500);
     } else {
       throw new Error(`Unknown bot type: ${botType}`);
     }
