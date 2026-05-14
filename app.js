@@ -291,6 +291,7 @@ function updateGameStatus(status) {
 function startDrag(e) {
   if (e.button !== 0) return;
   if (!gameRunning) return;
+  e.preventDefault();
   let el = e.target;
   // If clicked on image, get parent draggable-piece div
   if (el.tagName === 'IMG') {
@@ -327,6 +328,8 @@ function onDragDrop(e) {
   const col = Math.floor(x / CELL_SIZE);
   const row = Math.floor(y / CELL_SIZE);
 
+  console.log('Drop at row:', row, 'col:', col, 'dragState:', dragState);
+
   if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
     dragState = null;
     renderBoard();
@@ -335,6 +338,8 @@ function onDragDrop(e) {
 
   // Check if move is legal
   const moves = legalMoves(currentState);
+  console.log('Legal moves:', moves.filter(m => m.pieceType === dragState.pieceType && m.action === dragState.action));
+
   const matchingMove = moves.find(m =>
     m.pieceType === dragState.pieceType &&
     m.action === dragState.action &&
@@ -342,11 +347,16 @@ function onDragDrop(e) {
     m.col === col
   );
 
+  console.log('Matching move:', matchingMove);
+
   if (matchingMove) {
     try {
+      console.log('Submitting move:', matchingMove);
       gameSession.submitHumanMove(matchingMove);
+      console.log('Move submitted. pendingMove:', gameSession.pendingMove);
       updateGameStatus('Move sent. Waiting for opponent...');
     } catch (err) {
+      console.error('Error submitting move:', err);
       updateGameStatus(`Error: ${err.message}`);
     }
   } else {
