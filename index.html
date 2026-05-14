@@ -5,6 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acacia Game</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+        :root {
+          --bg-dark: #16130f;
+          --bg-card: #1e1a14;
+          --bg-mid: #211d16;
+          --bg-light: #2c261d;
+          --copper: #c4723a;
+          --copper-light: #e09060;
+          --gold: #d4a843;
+          --silver: #9aabb8;
+          --cream: #f0e6d3;
+          --text: #c8bcae;
+          --text-muted: #7a6e60;
+          --border: #352e22;
+          --border-light: #4a4035;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,14 +30,23 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #1a1a1a;
-            color: #fff;
+            font-family: 'Crimson Pro', Georgia, serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        main {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            width: 100%;
             padding: 20px;
         }
 
@@ -45,7 +72,7 @@
             padding: 6px 10px;
         }
 
-        .container {
+        .game-container {
             display: flex;
             gap: 40px;
             align-items: flex-start;
@@ -65,7 +92,7 @@
         }
 
         canvas {
-            border: 2px solid #444;
+            border: 2px solid var(--border);
             background: #ffffff;
             cursor: grab;
             touch-action: none;
@@ -85,8 +112,9 @@
             gap: 10px;
             justify-content: center;
             padding: 15px;
-            background: #222;
+            background: var(--bg-card);
             border-radius: 8px;
+            border: 1px solid var(--border);
         }
 
         .controls.hidden {
@@ -95,8 +123,8 @@
 
         button {
             padding: 8px 16px;
-            background: #0066cc;
-            color: white;
+            background: var(--copper);
+            color: var(--bg-dark);
             border: none;
             border-radius: 4px;
             cursor: pointer;
@@ -106,11 +134,11 @@
         }
 
         button:hover {
-            background: #0052a3;
+            background: var(--copper-light);
         }
 
         button:active {
-            background: #003d7a;
+            background: var(--gold);
         }
 
         button:disabled {
@@ -147,9 +175,9 @@
 
         select {
             padding: 6px 10px;
-            background: #333;
-            color: white;
-            border: 1px solid #555;
+            background: var(--bg-card);
+            color: var(--cream);
+            border: 1px solid var(--border);
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
@@ -162,10 +190,11 @@
         }
 
         .supply-panel {
-            background: #222;
+            background: var(--bg-card);
             padding: 15px;
             border-radius: 8px;
             min-width: 200px;
+            border: 1px solid var(--border);
         }
 
         .supply-panel h3 {
@@ -194,8 +223,8 @@
         .draggable-piece {
             width: 50px;
             height: 50px;
-            background: #333;
-            border: 2px solid #555;
+            background: var(--bg-light);
+            border: 2px solid var(--border);
             border-radius: 4px;
             cursor: grab;
             display: flex;
@@ -221,8 +250,8 @@
         }
 
         .draggable-piece:not(.disabled):hover {
-            border-color: #77ff;
-            background: #444;
+            border-color: var(--copper-light);
+            background: var(--bg-mid);
         }
 
         .draggable-piece:active:not(.disabled) {
@@ -234,8 +263,9 @@
             font-size: 16px;
             font-weight: bold;
             padding: 10px;
-            background: #222;
+            background: var(--bg-card);
             border-radius: 8px;
+            border: 1px solid var(--border);
         }
 
         .current-player.p1 {
@@ -251,18 +281,20 @@
             font-size: 16px;
             font-weight: bold;
             padding: 10px;
-            background: #222;
+            background: var(--bg-card);
             border-radius: 8px;
-            color: #ffaa00;
+            border: 1px solid var(--border);
+            color: var(--gold);
         }
 
         .info-panel {
-            background: #222;
+            background: var(--bg-card);
             padding: 15px;
             border-radius: 8px;
             font-size: 14px;
             line-height: 1.6;
             max-width: 300px;
+            border: 1px solid var(--border);
         }
 
         .info-panel h3 {
@@ -274,11 +306,12 @@
         }
 
         .analyse-panel {
-            background: #222;
+            background: var(--bg-card);
             padding: 20px;
             border-radius: 8px;
             min-width: 300px;
             display: none;
+            border: 1px solid var(--border);
         }
 
         .analyse-panel.visible {
@@ -304,9 +337,9 @@
 
         .analyse-input-group input {
             padding: 6px 10px;
-            background: #333;
-            color: white;
-            border: 1px solid #555;
+            background: var(--bg-light);
+            color: var(--cream);
+            border: 1px solid var(--border);
             border-radius: 4px;
             width: 100px;
         }
@@ -327,8 +360,8 @@
         .progress-bar {
             width: 100%;
             height: 24px;
-            background: #333;
-            border: 1px solid #555;
+            background: var(--bg-light);
+            border: 1px solid var(--border);
             border-radius: 4px;
             overflow: hidden;
             margin-bottom: 5px;
@@ -336,14 +369,14 @@
 
         .progress-bar-fill {
             height: 100%;
-            background: linear-gradient(90deg, #0066cc, #0052a3);
+            background: linear-gradient(90deg, var(--copper), var(--copper-light));
             width: 0%;
             transition: width 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 12px;
-            color: white;
+            color: var(--bg-dark);
             font-weight: bold;
         }
 
@@ -366,10 +399,10 @@
         }
 
         .stat-item {
-            background: #333;
+            background: var(--bg-light);
             padding: 12px;
             border-radius: 4px;
-            border-left: 3px solid #0066cc;
+            border-left: 3px solid var(--copper);
         }
 
         .stat-item.p2-stat {
@@ -442,90 +475,75 @@
             }
         }
 
-        /* Header and Navigation */
-        header {
-            width: 100%;
-            border-bottom: 2px solid #333;
-            padding: 15px 20px;
-            margin-bottom: 30px;
-            background: #0a0a0a;
+        /* ── Navigation ── */
+        .site-nav {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: rgba(22, 19, 15, 0.96);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 0;
         }
 
-        .header-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 2rem;
         }
 
-        .header-logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: #fff;
-            font-weight: 600;
-            font-size: 14px;
+        .nav-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
         }
 
-        .header-logo:hover {
-            color: #0066cc;
+        .nav-logo {
+          font-family: 'Oswald', sans-serif;
+          font-weight: 600;
+          font-size: 1.1rem;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          color: var(--cream);
+          text-decoration: none;
         }
 
-        .header-logo small {
-            color: #888;
-            font-size: 12px;
-            font-weight: normal;
-        }
-
-        nav a {
-            color: #ccc;
-            text-decoration: none;
-            font-size: 14px;
-            padding: 8px 15px;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
-
-        nav a:hover {
-            color: #fff;
-            background: #222;
-        }
-
-        nav a.current {
-            color: #0066cc;
-            background: #1a3a5c;
+        .nav-logo span {
+          color: var(--copper);
         }
 
         .nav-links {
-            display: flex;
-            gap: 5px;
+          display: flex;
+          gap: 2rem;
+          list-style: none;
         }
 
-        /* Mobile: 640px and below */
-        @media (max-width: 640px) {
-            header {
-                padding: 12px;
-                margin-bottom: 20px;
+        .nav-links a {
+          font-family: 'Oswald', sans-serif;
+          font-size: 0.82rem;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+          transition: color 0.2s;
+          text-decoration: none;
+        }
+
+        .nav-links a:hover {
+          color: var(--copper-light);
+        }
+
+        .nav-links a.current {
+          color: var(--copper-light);
+        }
+
+        /* Mobile: 768px and below */
+        @media (max-width: 768px) {
+            .nav-links {
+              display: none;
             }
 
-            .header-container {
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .header-logo {
-                font-size: 12px;
-            }
-
-            nav a {
-                font-size: 12px;
-                padding: 6px 12px;
-            }
-
-            body {
-                padding: 12px;
+            .nav-menu-toggle {
+              display: flex;
             }
 
             h1 {
@@ -714,28 +732,30 @@
     </style>
 </head>
 <body>
-    <header>
-        <div class="header-container">
-            <a href="https://www.wombatgamefactory.com/" class="header-logo">
-                Wombat Game Factory
-                <small>Board Game Design</small>
-            </a>
-            <nav class="nav-links">
-                <a href="https://www.wombatgamefactory.com/">Home</a>
-                <a href="https://www.wombatgamefactory.com/#games">Games</a>
-                <a href="https://www.wombatgamefactory.com/#about">About</a>
-                <a href="https://www.wombatgamefactory.com/#contact">Contact</a>
-                <a href="https://www.wombatgamefactory.com/games/acacia.html" class="current">Acacia</a>
-            </nav>
+    <nav class="site-nav">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="https://www.wombatgamefactory.com/" class="nav-logo">
+                    Wombat <span>Game Factory</span>
+                </a>
+                <ul class="nav-links">
+                    <li><a href="https://www.wombatgamefactory.com/">Home</a></li>
+                    <li><a href="https://www.wombatgamefactory.com/#games">Games</a></li>
+                    <li><a href="https://www.wombatgamefactory.com/#about">About</a></li>
+                    <li><a href="https://www.wombatgamefactory.com/#contact">Contact</a></li>
+                    <li><a href="https://www.wombatgamefactory.com/games/acacia.html" class="current">Acacia</a></li>
+                </ul>
+            </div>
         </div>
-    </header>
+    </nav>
 
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-        <img id="titleLogo" src="images/game_logo.png" alt="Acacia">
-        <div style="font-size: 12px; color: #888;">v<span id="versionNumber">1</span></div>
-    </div>
+    <main>
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+            <img id="titleLogo" src="images/game_logo.png" alt="Acacia">
+            <div style="font-size: 12px; color: var(--text-muted);">v<span id="versionNumber">1</span></div>
+        </div>
 
-    <div class="mode-selector">
+        <div class="mode-selector">
         <label>Mode:</label>
         <select id="modeSelect">
             <option value="watch">Watch</option>
@@ -761,7 +781,7 @@
         <button id="btnPlay" style="margin-left: 40px;">Play</button>
     </div>
 
-    <div class="container">
+    <div class="game-container">
         <div class="board-with-supply">
             <div class="supply-panels" id="p1SupplyPanel"></div>
 
@@ -769,7 +789,7 @@
                 <div class="current-player" id="currentPlayer">Player 1's turn</div>
                 <div class="game-status" id="gameStatus">Game ready</div>
                 <button id="playAgainBtn" style="display:none; margin-top: 10px; width: 100%; padding: 12px;">Play Again</button>
-                <canvas id="board" width="540" height="540" style="border: 2px solid #444; background: #ffffff;"></canvas>
+                <canvas id="board" width="540" height="540" style="background: #ffffff;"></canvas>
                 <div class="controls" id="controls">
                     <button id="btnPause">Pause</button>
                     <button id="btnStep">Step</button>
@@ -812,6 +832,8 @@
             </div>
         </div>
     </div>
+
+    </main>
 
     <!-- JavaScript modules loaded in dependency order -->
     <script src="version.js"></script>
