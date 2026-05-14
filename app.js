@@ -184,19 +184,19 @@ function updateSupply() {
     if (moves.length > 0) {
       html += '<div class="draggable-pieces" style="margin-top: 10px;">';
       if (p1Supply.regular > 0 && moves.some(m => m.pieceType === 'regular' && m.action === 'place')) {
-        html += '<div class="draggable-piece" data-piece="regular" data-action="place">🦉</div>';
+        html += '<div class="draggable-piece" data-piece="regular" data-action="place"><img src="images/piece_owl.png" alt="Regular piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="regular">🦉</div>';
+        html += '<div class="draggable-piece disabled" data-piece="regular"><img src="images/piece_owl.png" alt="Regular piece"></div>';
       }
       if (p1Supply.pusher > 0 && moves.some(m => m.pieceType === 'pusher' && m.action === 'eject')) {
-        html += '<div class="draggable-piece" data-piece="pusher" data-action="eject">🏠</div>';
+        html += '<div class="draggable-piece" data-piece="pusher" data-action="eject"><img src="images/house_blue.png" alt="Pusher piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="pusher">🏠</div>';
+        html += '<div class="draggable-piece disabled" data-piece="pusher"><img src="images/house_blue.png" alt="Pusher piece"></div>';
       }
       if (p1Supply.yellow > 0 && moves.some(m => m.pieceType === 'yellow' && m.action === 'eject')) {
-        html += '<div class="draggable-piece" data-piece="yellow" data-action="eject">🐨</div>';
+        html += '<div class="draggable-piece" data-piece="yellow" data-action="eject"><img src="images/piece_koala.png" alt="Koala piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="yellow">🐨</div>';
+        html += '<div class="draggable-piece disabled" data-piece="yellow"><img src="images/piece_koala.png" alt="Koala piece"></div>';
       }
       html += '</div>';
     }
@@ -216,19 +216,19 @@ function updateSupply() {
     if (moves.length > 0) {
       html += '<div class="draggable-pieces" style="margin-top: 10px;">';
       if (p2Supply.regular > 0 && moves.some(m => m.pieceType === 'regular' && m.action === 'place')) {
-        html += '<div class="draggable-piece" data-piece="regular" data-action="place">🐿️</div>';
+        html += '<div class="draggable-piece" data-piece="regular" data-action="place"><img src="images/piece_squirrel.png" alt="Regular piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="regular">🐿️</div>';
+        html += '<div class="draggable-piece disabled" data-piece="regular"><img src="images/piece_squirrel.png" alt="Regular piece"></div>';
       }
       if (p2Supply.pusher > 0 && moves.some(m => m.pieceType === 'pusher' && m.action === 'eject')) {
-        html += '<div class="draggable-piece" data-piece="pusher" data-action="eject">🏠</div>';
+        html += '<div class="draggable-piece" data-piece="pusher" data-action="eject"><img src="images/house_red.png" alt="Pusher piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="pusher">🏠</div>';
+        html += '<div class="draggable-piece disabled" data-piece="pusher"><img src="images/house_red.png" alt="Pusher piece"></div>';
       }
       if (p2Supply.yellow > 0 && moves.some(m => m.pieceType === 'yellow' && m.action === 'eject')) {
-        html += '<div class="draggable-piece" data-piece="yellow" data-action="eject">🐨</div>';
+        html += '<div class="draggable-piece" data-piece="yellow" data-action="eject"><img src="images/piece_koala.png" alt="Koala piece"></div>';
       } else {
-        html += '<div class="draggable-piece disabled" data-piece="yellow">🐨</div>';
+        html += '<div class="draggable-piece disabled" data-piece="yellow"><img src="images/piece_koala.png" alt="Koala piece"></div>';
       }
       html += '</div>';
     }

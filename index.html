@@ -190,8 +190,15 @@
             align-items: center;
             justify-content: center;
             user-select: none;
-            font-size: 24px;
             transition: opacity 0.2s;
+            overflow: hidden;
+        }
+
+        .draggable-piece img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 2px;
         }
 
         .draggable-piece.disabled {
