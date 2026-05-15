@@ -410,6 +410,9 @@ function updateSupplyZones() {
 
   // Attach drag and tap-to-select handlers to new draggable pieces
   document.querySelectorAll('#opponentSupplyZone .draggable-piece:not(.disabled), #playerSupplyZone .draggable-piece:not(.disabled)').forEach(el => {
+    // Track touch state to distinguish between tap and drag
+    let isTouchDrag = false;
+
     // Tap-to-select handler (click for desktop, after touch ends on mobile)
     el.addEventListener('click', (e) => {
       if (!gameRunning || !gameSession.waitingForHuman) return;
@@ -434,10 +437,22 @@ function updateSupplyZones() {
       selectedPiece = null;
       startDrag(e);
     });
+
     el.addEventListener('touchstart', (e) => {
-      // Clear selection when starting drag
+      // Don't clear selection on touchstart; wait to see if it's a drag
+      isTouchDrag = false;
+    });
+
+    el.addEventListener('touchmove', (e) => {
+      // If finger moved, it's a drag, not a tap
+      isTouchDrag = true;
       selectedPiece = null;
       startDrag(e);
+    });
+
+    el.addEventListener('touchend', (e) => {
+      // If it wasn't a drag, let the click handler (tap) do its job
+      isTouchDrag = false;
     });
   });
 }
