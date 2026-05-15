@@ -33,7 +33,31 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function initWelcomeScreen() {
   const overlay = document.getElementById('welcomeOverlay');
-  if (!overlay) return; // Welcome screen not available
+  if (!overlay) {
+    console.warn('[Welcome] welcomeOverlay element not found');
+    return; // Welcome screen not available
+  }
+
+  // Ensure overlay is visible with inline styles as fallback
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.zIndex = '10000';
+  overlay.style.background = 'rgba(0, 0, 0, 0.85)';
+  overlay.style.display = 'flex';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.padding = '1rem';
+
+  console.log('[Welcome] welcomeOverlay found, display:', window.getComputedStyle(overlay).display);
+  console.log('[Welcome] welcomeOverlay visible:', overlay.offsetHeight > 0);
+
+  // Ensure welcome card is visible
+  const card = overlay.querySelector('.welcome-card');
+  if (card) {
+    card.style.background = card.style.background || '#1a1a1a';
+    card.style.border = card.style.border || '1px solid #444';
+    card.style.color = card.style.color || '#f5f5dc';
+  }
 
   const modeButtons = document.querySelectorAll('.welcome-mode-btn');
   const toggleButtons = document.querySelectorAll('.welcome-toggle');
