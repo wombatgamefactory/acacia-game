@@ -383,6 +383,8 @@ function updateCurrentPlayer() {
 
   // Update turn banner (Phase 2)
   const banner = document.getElementById('turnBanner');
+  if (!banner) return; // Element not ready yet
+
   banner.className = 'turn-banner ' + (isP1 ? 'p1' : 'p2') + (isHumanTurn ? ' your-turn' : '');
   if (isHumanTurn) {
     banner.textContent = 'Your turn — tap a piece, then tap the board';
@@ -562,54 +564,69 @@ function onGameOver(state) {
 
 // ============ Game Over Overlay Handler (Phase 5) ============
 
-document.getElementById('playAgainBtn2').addEventListener('click', () => {
-  document.getElementById('gameOverOverlay').classList.add('hidden');
-  performReset();
-});
+const playAgainBtn2 = document.getElementById('playAgainBtn2');
+if (playAgainBtn2) {
+  playAgainBtn2.addEventListener('click', () => {
+    document.getElementById('gameOverOverlay').classList.add('hidden');
+    performReset();
+  });
+}
 
-document.getElementById('returnToMenuBtn').addEventListener('click', () => {
-  document.getElementById('gameOverOverlay').classList.add('hidden');
-  gameRunning = false;
-  gameSession.running = false;
-  gameSession.reset();
-  currentState = gameSession.state;
-  dragState = null;
-  selectedPiece = null;
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
-  document.getElementById('welcomeOverlay').classList.remove('hidden');
-});
+const returnToMenuBtn = document.getElementById('returnToMenuBtn');
+if (returnToMenuBtn) {
+  returnToMenuBtn.addEventListener('click', () => {
+    document.getElementById('gameOverOverlay').classList.add('hidden');
+    gameRunning = false;
+    gameSession.running = false;
+    gameSession.reset();
+    currentState = gameSession.state;
+    dragState = null;
+    selectedPiece = null;
+    renderBoard();
+    updateSupply();
+    updateCurrentPlayer();
+    document.getElementById('welcomeOverlay').classList.remove('hidden');
+  });
+}
 
 // ============ Menu Modal Handler (Phase 4) ============
 
-document.getElementById('menuBtn').addEventListener('click', () => {
-  document.getElementById('menuModal').classList.remove('hidden');
-  // Sync the speed slider value
-  const menuSlider = document.getElementById('speedSliderMenu');
-  if (menuSlider) {
-    menuSlider.value = gameSession.speedMs;
-  }
-});
+const menuBtn = document.getElementById('menuBtn');
+if (menuBtn) {
+  menuBtn.addEventListener('click', () => {
+    document.getElementById('menuModal').classList.remove('hidden');
+    // Sync the speed slider value
+    const menuSlider = document.getElementById('speedSliderMenu');
+    if (menuSlider) {
+      menuSlider.value = gameSession.speedMs;
+    }
+  });
+}
 
-document.getElementById('menuModalClose').addEventListener('click', () => {
-  document.getElementById('menuModal').classList.add('hidden');
-});
+const menuModalClose = document.getElementById('menuModalClose');
+if (menuModalClose) {
+  menuModalClose.addEventListener('click', () => {
+    document.getElementById('menuModal').classList.add('hidden');
+  });
+}
 
-document.getElementById('btnNewGame').addEventListener('click', () => {
-  // Stop game, reset, and show welcome overlay
-  gameRunning = false;
-  gameSession.running = false;
-  document.getElementById('menuModal').classList.add('hidden');
-  gameSession.reset();
-  currentState = gameSession.state;
-  dragState = null;
-  selectedPiece = null;
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
-  document.getElementById('welcomeOverlay').classList.remove('hidden');
-});
+const btnNewGame = document.getElementById('btnNewGame');
+if (btnNewGame) {
+  btnNewGame.addEventListener('click', () => {
+    // Stop game, reset, and show welcome overlay
+    gameRunning = false;
+    gameSession.running = false;
+    document.getElementById('menuModal').classList.add('hidden');
+    gameSession.reset();
+    currentState = gameSession.state;
+    dragState = null;
+    selectedPiece = null;
+    renderBoard();
+    updateSupply();
+    updateCurrentPlayer();
+    document.getElementById('welcomeOverlay').classList.remove('hidden');
+  });
+}
 
 // Speed slider in menu (Phase 4)
 const speedSliderMenu = document.getElementById('speedSliderMenu');
@@ -621,59 +638,62 @@ if (speedSliderMenu) {
 
 // ============ Canvas Click Handler (Tap-to-Place) ============
 
-document.getElementById('board').addEventListener('click', (e) => {
-  if (!selectedPiece || !gameRunning || !gameSession.waitingForHuman) return;
+const boardCanvas = document.getElementById('board');
+if (boardCanvas) {
+  boardCanvas.addEventListener('click', (e) => {
+    if (!selectedPiece || !gameRunning || !gameSession.waitingForHuman) return;
 
-  const canvas = document.getElementById('board');
-  const rect = canvas.getBoundingClientRect();
+    const canvas = document.getElementById('board');
+    const rect = canvas.getBoundingClientRect();
 
-  // Calculate coordinates relative to canvas
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+    // Calculate coordinates relative to canvas
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-  // Scale coordinates to canvas internal size (account for CSS scaling on mobile)
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const scaledX = x * scaleX;
-  const scaledY = y * scaleY;
+    // Scale coordinates to canvas internal size (account for CSS scaling on mobile)
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const scaledX = x * scaleX;
+    const scaledY = y * scaleY;
 
-  const col = Math.floor(scaledX / CELL_SIZE);
-  const row = Math.floor(scaledY / CELL_SIZE);
+    const col = Math.floor(scaledX / CELL_SIZE);
+    const row = Math.floor(scaledY / CELL_SIZE);
 
-  if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
-    // Click outside board - clear selection
-    selectedPiece = null;
+    if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+      // Click outside board - clear selection
+      selectedPiece = null;
+      renderBoard();
+      updateSupplyZones();
+      return;
+    }
+
+    // Find matching move
+    const moves = legalMoves(currentState);
+    const matchingMove = moves.find(m =>
+      m.pieceType === selectedPiece.pieceType &&
+      m.action === selectedPiece.action &&
+      m.row === row &&
+      m.col === col
+    );
+
+    if (matchingMove) {
+      try {
+        gameSession.submitHumanMove(matchingMove);
+        updateGameStatus('Move sent. Waiting for opponent...');
+        selectedPiece = null;
+      } catch (err) {
+        console.error('Error submitting move:', err);
+        updateGameStatus(`Error: ${err.message}`);
+      }
+    } else {
+      // Tap on non-legal cell - clear selection
+      selectedPiece = null;
+    }
+
     renderBoard();
     updateSupplyZones();
-    return;
-  }
-
-  // Find matching move
-  const moves = legalMoves(currentState);
-  const matchingMove = moves.find(m =>
-    m.pieceType === selectedPiece.pieceType &&
-    m.action === selectedPiece.action &&
-    m.row === row &&
-    m.col === col
-  );
-
-  if (matchingMove) {
-    try {
-      gameSession.submitHumanMove(matchingMove);
-      updateGameStatus('Move sent. Waiting for opponent...');
-      selectedPiece = null;
-    } catch (err) {
-      console.error('Error submitting move:', err);
-      updateGameStatus(`Error: ${err.message}`);
-    }
-  } else {
-    // Tap on non-legal cell - clear selection
-    selectedPiece = null;
-  }
-
-  renderBoard();
-  updateSupplyZones();
-});
+  });
+}
 
 // ============ Reset Button Handler ============
 
@@ -792,29 +812,32 @@ function displayAnalysisResults(stats) {
   statsGrid.classList.add('visible');
 }
 
-document.getElementById('btnRunAnalysis').addEventListener('click', () => {
-  const runBtn = document.getElementById('btnRunAnalysis');
+const btnRunAnalysis = document.getElementById('btnRunAnalysis');
+if (btnRunAnalysis) {
+  btnRunAnalysis.addEventListener('click', () => {
+    const runBtn = document.getElementById('btnRunAnalysis');
 
-  if (isAnalysing) {
-    return;
-  }
+    if (isAnalysing) {
+      return;
+    }
 
-  // Disable button immediately
-  isAnalysing = true;
-  runBtn.disabled = true;
-  runBtn.textContent = 'Running...';
+    // Disable button immediately
+    isAnalysing = true;
+    runBtn.disabled = true;
+    runBtn.textContent = 'Running...';
 
-  const iterations = parseInt(document.getElementById('iterationsInput').value) || 20;
-  const bot1 = document.getElementById('bot1Select').value;
-  const bot2 = document.getElementById('bot2Select').value;
+    const iterations = parseInt(document.getElementById('iterationsInput').value) || 20;
+    const bot1 = document.getElementById('bot1Select').value;
+    const bot2 = document.getElementById('bot2Select').value;
 
-  document.getElementById('analyseProgress').classList.add('visible');
-  document.getElementById('statsGrid').classList.remove('visible');
+    document.getElementById('analyseProgress').classList.add('visible');
+    document.getElementById('statsGrid').classList.remove('visible');
 
-  // Initialize progress display
-  document.getElementById('currentGameStatus').textContent = `Starting Game 1 of ${iterations}...`;
-  document.getElementById('progressBarFill').style.width = '0%';
+    // Initialize progress display
+    document.getElementById('currentGameStatus').textContent = `Starting Game 1 of ${iterations}...`;
+    document.getElementById('progressBarFill').style.width = '0%';
 
-  console.log('[Analysis] Starting with iterations:', iterations, 'bots:', bot1, bot2);
-  runAnalysis(iterations, bot1, bot2, updateAnalysisProgress, displayAnalysisResults);
-});
+    console.log('[Analysis] Starting with iterations:', iterations, 'bots:', bot1, bot2);
+    runAnalysis(iterations, bot1, bot2, updateAnalysisProgress, displayAnalysisResults);
+  });
+}
