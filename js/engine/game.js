@@ -162,11 +162,11 @@ function legalMoves(state) {
     }
   }
 
-  // Eject opponent's pusher with yellow
+  // Eject opponent's pieces with yellow (regular or pusher)
   if (currentSupply.yellow > 0) {
     for (let i = 0; i < 36; i++) {
       const cell = state.board[i];
-      if (cell && cell.player === opponent && cell.pieceType === PieceType.PUSHER) {
+      if (cell && cell.player === opponent && (cell.pieceType === PieceType.REGULAR || cell.pieceType === PieceType.PUSHER)) {
         const [r, c] = rc(i);
         moves.push(createMove('eject', r, c, PieceType.YELLOW));
       }
@@ -193,6 +193,14 @@ function applyMove(state, move) {
   } else if (move.action === 'eject') {
     const victimCell = boardList[targetIdx];
     const victimPiece = victimCell.pieceType;
+
+    // Validate eject rules: pusher ejects regular, yellow ejects regular or pusher
+    if (move.pieceType === PieceType.PUSHER && victimPiece !== PieceType.REGULAR) {
+      throw new Error(`Invalid eject: house can only eject regular pieces, not ${victimPiece}`);
+    }
+    if (move.pieceType === PieceType.YELLOW && victimPiece !== PieceType.REGULAR && victimPiece !== PieceType.PUSHER) {
+      throw new Error(`Invalid eject: koala can only eject regular or house pieces, not ${victimPiece}`);
+    }
 
     boardList[targetIdx] = { player: currentPlayer, pieceType: move.pieceType };
     supplyList[currentIdx] = supplySpend(supplyList[currentIdx], move.pieceType);

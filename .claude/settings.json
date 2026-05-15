@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(python -m http.server 8000)",
+      "Bash(curl -s http://localhost:8000/acacia-game.html)",
+      "Bash(node -e \"require\\('fs'\\).readFileSync\\('acacia-game.html'\\)\")"
+    ]
+  }
+}

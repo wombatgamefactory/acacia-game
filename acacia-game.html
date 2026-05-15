@@ -600,9 +600,477 @@
                 opacity: 0.5;
             }
         }
+
+        /* ============ Welcome Overlay & Modal Styles ============ */
+        .welcome-overlay,
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .legacy-config {
+            display: none;
+        }
+
+        .welcome-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 440px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            text-align: center;
+        }
+
+        .welcome-logo {
+            max-height: 80px;
+        }
+
+        .welcome-title {
+            font-size: 2rem;
+            margin: 0;
+            color: var(--cream);
+            font-weight: 700;
+        }
+
+        .welcome-subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .welcome-section {
+            width: 100%;
+        }
+
+        .welcome-section h2 {
+            font-size: 1rem;
+            color: var(--cream);
+            margin: 0 0 0.75rem;
+        }
+
+        .welcome-mode-buttons,
+        .welcome-toggle-group {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .welcome-mode-btn,
+        .welcome-toggle {
+            padding: 0.6rem 1.25rem;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-light);
+            color: var(--cream);
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .welcome-mode-btn.active,
+        .welcome-toggle.active {
+            background: var(--copper);
+            border-color: var(--copper);
+            color: var(--bg-dark);
+            font-weight: 600;
+        }
+
+        .welcome-start-btn {
+            width: 100%;
+            padding: 0.9rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: var(--copper);
+            color: var(--bg-dark);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .welcome-start-btn:hover {
+            background: var(--copper-light);
+        }
+
+        .welcome-rules-link {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 0;
+        }
+
+        .modal-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            max-width: 380px;
+            width: 100%;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            color: var(--cream);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            min-height: unset;
+            line-height: 1;
+        }
+
+        .modal-card h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--cream);
+        }
+
+        .modal-card p {
+            margin: 0.75rem 0;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--cream);
+        }
+
+        .welcome-difficulty {
+            display: block;
+            width: 100%;
+        }
+
+        /* ============ Game Layout Phase 2 ============ */
+        .game-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            margin: -2rem -2rem 1.5rem -2rem;
+            padding: 0.75rem 2rem;
+        }
+
+        .game-topbar-title {
+            font-weight: 600;
+            color: var(--cream);
+            font-size: 1rem;
+        }
+
+        .menu-hamburger-btn {
+            background: none;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 0.5rem;
+            min-height: unset;
+            margin-right: 0.5rem;
+        }
+
+        .hamburger-line {
+            width: 24px;
+            height: 2.5px;
+            background: var(--cream);
+            border-radius: 2px;
+            transition: background 0.2s;
+        }
+
+        .menu-hamburger-btn:hover .hamburger-line {
+            background: var(--copper);
+        }
+
+        /* Two-column layout: main + sidebar */
+        .game-layout {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+        }
+
+        .game-main-col {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .game-sidebar {
+            display: none;
+            flex: 0 0 300px;
+        }
+
+        @media (min-width: 900px) {
+            .game-sidebar {
+                display: block;
+            }
+        }
+
+        /* Supply Zones */
+        .supply-zone {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            min-height: 80px;
+        }
+
+        .supply-zone--opponent {
+            opacity: 0.85;
+        }
+
+        .supply-zone--player.your-turn {
+            border-color: var(--copper);
+            box-shadow: 0 0 0 2px rgba(180, 120, 40, 0.25);
+        }
+
+        .supply-zone.p1-accent {
+            border-left: 4px solid #4499ff;
+        }
+
+        .supply-zone.p2-accent {
+            border-left: 4px solid #ff6666;
+        }
+
+        .supply-zone-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            min-width: 60px;
+        }
+
+        /* Turn Banner */
+        .turn-banner {
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            color: var(--cream);
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+        }
+
+        .turn-banner.p1 {
+            background: rgba(68, 153, 255, 0.15);
+            border-color: #4499ff;
+            color: #4499ff;
+        }
+
+        .turn-banner.p2 {
+            background: rgba(255, 102, 102, 0.15);
+            border-color: #ff6666;
+            color: #ff6666;
+        }
+
+        .turn-banner.your-turn {
+            font-weight: 700;
+        }
+
+        /* Board Wrapper */
+        .board-wrap {
+            width: 100%;
+        }
+
+        .board-wrap canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            touch-action: none;
+        }
+
+        /* Controls */
+        .watch-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .watch-controls.hidden {
+            display: none !important;
+        }
+
+        .play-controls {
+            display: flex;
+            justify-content: center;
+        }
+
+        .play-controls.hidden {
+            display: none !important;
+        }
+
+        .play-controls button {
+            width: auto;
+            min-width: 100px;
+        }
+
+        /* Game Over Card */
+        .game-over-card {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        .game-over-winner {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--copper);
+        }
+
+        /* ============ Menu Modal (Phase 4) ============ */
+        .menu-modal-card {
+            max-width: 500px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .menu-section {
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .menu-section:last-child {
+            border-bottom: none;
+        }
+
+        .menu-section h3,
+        .menu-section h4 {
+            margin: 0 0 0.75rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .menu-section h3 {
+            font-size: 1rem;
+            color: var(--cream);
+            text-transform: none;
+        }
+
+        .menu-action-btn {
+            width: 100%;
+            text-align: center;
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            color: var(--cream);
+            border-radius: 6px;
+            padding: 0.75rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .menu-action-btn:hover {
+            background: var(--bg-mid);
+        }
+
+        @media (max-width: 768px) {
+            .welcome-card {
+                padding: 1.5rem;
+                border-radius: 8px;
+            }
+
+            .welcome-title {
+                font-size: 1.5rem;
+            }
+
+            .welcome-mode-btn,
+            .welcome-toggle {
+                padding: 0.5rem 1rem;
+                font-size: 14px;
+            }
+
+            .modal-card {
+                padding: 1rem;
+            }
+
+            .modal-card p {
+                font-size: 13px;
+            }
+        }
     </style>
 </head>
 <body>
+
+    <!-- Welcome/Setup Overlay -->
+    <div id="welcomeOverlay" class="welcome-overlay">
+        <div class="welcome-card">
+            <img class="welcome-logo" src="images/game_logo.png" alt="Acacia">
+            <h1 class="welcome-title">Acacia</h1>
+            <p class="welcome-subtitle">A strategic board game for 2 players</p>
+
+            <div class="welcome-section">
+                <h2>How do you want to play?</h2>
+                <div class="welcome-mode-buttons" id="welcomeModeButtons">
+                    <button class="welcome-mode-btn active" data-mode="vs-ai">vs Computer</button>
+                    <button class="welcome-mode-btn" data-mode="watch">Watch Bots</button>
+                </div>
+            </div>
+
+            <div class="welcome-difficulty" id="welcomeDifficulty">
+                <h2>Difficulty</h2>
+                <div class="welcome-toggle-group">
+                    <button class="welcome-toggle active" data-difficulty="easy">Easy</button>
+                    <button class="welcome-toggle" data-difficulty="hard">Hard</button>
+                </div>
+            </div>
+
+            <button class="welcome-start-btn" id="welcomeStartBtn">Start Game</button>
+            <button class="welcome-rules-link" id="welcomeRulesBtn">How to play ›</button>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rulesModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <button class="modal-close" id="rulesModalClose">×</button>
+            <h3>How to Play</h3>
+            <p><strong>Goal:</strong> Form 4-in-a-row or place all pieces</p>
+            <p><strong>Pieces:</strong> Regular (Owls/Squirrels), Houses, and Koala</p>
+            <p><strong>Actions:</strong> Place a piece adjacent to others, or eject an opponent's piece with yours</p>
+            <p><strong>Eject rules:</strong> House ejects Regular • Koala ejects Regular or House • (Koala can't be ejected)</p>
+            <p><strong>Your turn:</strong> Drag pieces from your supply to the board to play.</p>
+        </div>
+    </div>
 
     <nav class="site-nav">
         <div class="container">
@@ -641,83 +1109,99 @@
                 </div>
             </div>
 
-            <div class="mode-selector">
-                <label>Mode:</label>
-                <select id="modeSelect">
-                    <option value="watch">Watch</option>
-                    <option value="analyse">Analyse</option>
-                </select>
-                <div class="bot-selector">
-                    <label>Player 1:</label>
-                    <select id="bot1Select">
-                        <option value="random">Random</option>
-                        <option value="mcts">MCTS</option>
-                        <option value="human">Human</option>
-                    </select>
-                    <label>Player 2:</label>
-                    <select id="bot2Select">
-                        <option value="random">Random</option>
-                        <option value="mcts">MCTS</option>
-                        <option value="human">Human</option>
-                    </select>
-                    <label>Think Time:</label>
-                    <input type="range" id="thinkTimeSlider" min="100" max="1000" step="50" value="200" style="width: 100px;">
-                    <span id="thinkTimeValue" style="margin-left: 5px; min-width: 40px;">200</span>
-                </div>
-                <button id="btnPlay">Play</button>
+
+            <!-- Game Topbar -->
+            <div class="game-topbar" id="gameTopbar">
+                <button class="menu-hamburger-btn" id="menuBtn" aria-label="Menu">
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                </button>
+                <span class="game-topbar-title">Acacia</span>
             </div>
 
-            <div class="game-container">
-        <div class="board-with-supply">
-            <div class="supply-panels" id="p1SupplyPanel"></div>
+            <!-- New Mobile-First Layout -->
+            <div class="game-layout">
+                <div class="game-main-col">
+                    <!-- Opponent Supply (top) -->
+                    <div id="opponentSupplyZone" class="supply-zone supply-zone--opponent"></div>
 
-            <div class="board-container">
-                <div class="current-player" id="currentPlayer">Player 1's turn</div>
-                <div class="game-status" id="gameStatus">Game ready</div>
-                <button id="playAgainBtn" style="display:none; margin-top: 10px; width: 100%; padding: 12px;">Play Again</button>
-                <canvas id="board" width="540" height="540" style="background: #ffffff;"></canvas>
-                <div class="controls" id="controls">
-                    <button id="btnPause">Pause</button>
-                    <button id="btnStep">Step</button>
-                    <button id="btnReset">Reset</button>
-                    <div class="speed-control">
-                        <label>Speed (ms):</label>
-                        <input id="speedSlider" type="range" min="100" max="2000" step="100" value="500">
+                    <!-- Turn Banner -->
+                    <div id="turnBanner" class="turn-banner">Player 1's turn</div>
+
+                    <!-- Board -->
+                    <div class="board-wrap">
+                        <canvas id="board" width="540" height="540" style="background: #ffffff;"></canvas>
+                    </div>
+
+                    <!-- Your Supply (bottom) -->
+                    <div id="playerSupplyZone" class="supply-zone supply-zone--player"></div>
+
+                    <!-- Watch Controls (visible only in bot-vs-bot mode) -->
+                    <div id="watchControls" class="watch-controls hidden">
+                        <button id="btnPause">Pause</button>
+                        <div class="speed-control">
+                            <label>Speed (ms):</label>
+                            <input id="speedSlider" type="range" min="100" max="2000" step="100" value="500">
+                        </div>
+                    </div>
+
+                    <!-- Play Controls (Reset button) -->
+                    <div id="playControls" class="play-controls">
+                        <button id="btnReset2">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Sidebar (desktop only, will show analysis from menu in Phase 4) -->
+                <aside id="gameSidebar" class="game-sidebar">
+                </aside>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameOverOverlay" class="modal-overlay hidden">
+                <div class="modal-card game-over-card">
+                    <div id="gameOverWinner" class="game-over-winner"></div>
+                    <button id="playAgainBtn2" class="welcome-start-btn">Play Again</button>
+                    <button id="returnToMenuBtn" class="welcome-rules-link">Change settings</button>
+                </div>
+            </div>
+
+            <!-- Menu Modal (Phase 4) -->
+            <div id="menuModal" class="modal-overlay hidden">
+                <div class="modal-card menu-modal-card">
+                    <button class="modal-close" id="menuModalClose">×</button>
+                    <h3>Menu</h3>
+
+                    <div class="menu-section">
+                        <button id="btnNewGame" class="menu-action-btn">New Game / Change Settings</button>
+                    </div>
+
+                    <div class="menu-section">
+                        <h4>Bot Speed</h4>
+                        <div class="speed-control">
+                            <label>Move delay (ms):</label>
+                            <input id="speedSliderMenu" type="range" min="100" max="2000" step="100" value="500">
+                        </div>
+                    </div>
+
+                    <div class="menu-section">
+                        <h3>Game Analysis</h3>
+                        <div class="analyse-input-group">
+                            <label for="iterationsInput">Iterations:</label>
+                            <input type="number" id="iterationsInput" min="1" max="10000" value="20">
+                            <button id="btnRunAnalysis">Run Analysis</button>
+                        </div>
+                        <div class="analyse-progress" id="analyseProgress">
+                            <div id="currentGameStatus" style="margin-bottom: 15px; text-align: center; color: #ffaa00; font-size: 16px; font-weight: bold;">Running Game 0 of 0...</div>
+                            <div class="progress-bar">
+                                <div class="progress-bar-fill" id="progressBarFill"></div>
+                            </div>
+                        </div>
+                        <div class="stats-grid" id="statsGrid"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="supply-panels" id="p2SupplyPanel"></div>
-        </div>
-
-        <div>
-
-            <div class="analyse-panel" id="analysePanel">
-                <h3>Game Analysis</h3>
-                <div class="analyse-input-group">
-                    <label for="iterationsInput">Iterations:</label>
-                    <input type="number" id="iterationsInput" min="1" max="10000" value="20">
-                    <button id="btnRunAnalysis">Run Analysis</button>
-                </div>
-                <div class="analyse-progress" id="analyseProgress">
-                    <div id="currentGameStatus" style="margin-bottom: 15px; text-align: center; color: #ffaa00; font-size: 16px; font-weight: bold;">Running Game 0 of 0...</div>
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" id="progressBarFill"></div>
-                    </div>
-                </div>
-                <div class="stats-grid" id="statsGrid"></div>
-            </div>
-
-            <div class="info-panel">
-                <h3>How to Play</h3>
-                <p><strong>Goal:</strong> Form 4-in-a-row or place all pieces</p>
-                <p><strong>Blue:</strong> Player 1 (Owls & Houses)</p>
-                <p><strong>Red:</strong> Player 2 (Squirrels & Houses)</p>
-                <p><strong>Yellow:</strong> Koala (breaks lines, can't be ejected)</p>
-                <p id="humanHint" style="display:none; color: #ffff00; margin-top: 10px;"><strong>Drag pieces from your supply to the board!</strong></p>
-            </div>
-            </div>
-        </div>
         </div>
     </main>
 

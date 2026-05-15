@@ -7,11 +7,14 @@ const PIECE_RADIUS = 30;
 let gameSession = new GameSession();
 let currentState = gameSession.state;
 let gameRunning = false;
-let currentMode = 'watch';
 let isAnalysing = false;
 let dragState = null;
 let imageCache = {};
-let mctsCThinkTime = 200;
+
+// Welcome screen state
+let welcomeMode = 'vs-ai';      // 'vs-ai' | 'watch'
+let welcomeDifficulty = 'easy'; // 'easy' | 'hard'
+let selectedPiece = null;       // {pieceType, action} | null — for tap-to-select (Phase 3)
 
 // Initialize on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -20,7 +23,78 @@ window.addEventListener('DOMContentLoaded', () => {
   renderBoard();
   updateSupply();
   updateCurrentPlayer();
+  initWelcomeScreen();
 });
+
+// ============ Welcome Screen ============
+
+function initWelcomeScreen() {
+  const overlay = document.getElementById('welcomeOverlay');
+  const modeButtons = document.querySelectorAll('.welcome-mode-btn');
+  const toggleButtons = document.querySelectorAll('.welcome-toggle');
+
+  // Mode toggle buttons
+  modeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      welcomeMode = btn.dataset.mode;
+      modeButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const difficultySection = document.getElementById('welcomeDifficulty');
+      difficultySection.style.display = welcomeMode === 'vs-ai' ? 'block' : 'none';
+    });
+  });
+
+  // Difficulty toggle
+  toggleButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      welcomeDifficulty = btn.dataset.difficulty;
+      toggleButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // Rules modal
+  document.getElementById('welcomeRulesBtn').addEventListener('click', () => {
+    document.getElementById('rulesModal').classList.remove('hidden');
+  });
+
+  document.getElementById('rulesModalClose').addEventListener('click', () => {
+    document.getElementById('rulesModal').classList.add('hidden');
+  });
+
+  // Start game
+  document.getElementById('welcomeStartBtn').addEventListener('click', () => {
+    applyWelcomeConfig();
+    overlay.classList.add('hidden');
+    startGameFromWelcome();
+  });
+}
+
+function applyWelcomeConfig() {
+  if (welcomeMode === 'vs-ai') {
+    // Human is P1, bot is P2
+    const botType = welcomeDifficulty === 'hard' ? 'mcts' : 'random';
+    gameSession.setBots('human', botType);
+    // Set MCTS think time for harder difficulty
+    if (botType === 'mcts') {
+      gameSession.setMCTSThinkTime(200);
+    }
+  } else if (welcomeMode === 'watch') {
+    // Watch mode: bot vs bot (MCTS vs Random)
+    gameSession.setBots('mcts', 'random');
+  }
+}
+
+function startGameFromWelcome() {
+  gameRunning = true;
+  gameSession.running = true;
+  currentState = gameSession.state;
+  runGameLoop(gameSession, onStateUpdate, onGameOver);
+  updateGameStatus(gameSession.humanPlayer ? 'Your turn!' : 'Watching...');
+  updateSupply();
+  updateCurrentPlayer();
+  updateWatchControlsVisibility();
+}
 
 // ============ Canvas Rendering ============
 
@@ -113,12 +187,13 @@ async function renderBoard() {
     ctx.stroke();
   }
 
-  // Draw legal move highlights (when dragging)
+  // Draw legal move highlights (when dragging or selecting)
   const legalMovesForState = legalMoves(currentState);
-  if (dragState && legalMovesForState.length > 0) {
+  const activeFilter = dragState || selectedPiece;
+  if (activeFilter && legalMovesForState.length > 0) {
     ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
     for (const move of legalMovesForState) {
-      if (move.pieceType === dragState.pieceType && move.action === dragState.action) {
+      if (move.pieceType === activeFilter.pieceType && move.action === activeFilter.action) {
         const x = move.col * CELL_SIZE;
         const y = move.row * CELL_SIZE;
         ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
@@ -165,130 +240,181 @@ async function renderBoard() {
   }
 }
 
-function updateSupply() {
-  const p1Container = document.getElementById('p1SupplyPanel');
-  const p2Container = document.getElementById('p2SupplyPanel');
-  const p1Supply = currentState.supply[0];
-  const p2Supply = currentState.supply[1];
+function updateSupplyZones() {
+  // Phase 2: Populate new supply zone containers with draggable pieces
+  const opponentZone = document.getElementById('opponentSupplyZone');
+  const playerZone = document.getElementById('playerSupplyZone');
 
-  // Render Player 1 supply (above board)
-  let p1Html = `
-    <div class="supply-panel">
-        <h3 style="color: #4499ff;">Player 1 Supply ${gameSession.humanPlayer === Player.P1 ? '(You)' : ''}</h3>
-        <div class="supply-items">
-            <div class="supply-item"><span>Regular:</span> <strong>${p1Supply.regular}</strong></div>
-            <div class="supply-item"><span>Pusher:</span> <strong>${p1Supply.pusher}</strong></div>
-            <div class="supply-item"><span>Koala:</span> <strong>${p1Supply.yellow}</strong></div>
-        </div>`;
+  if (!opponentZone || !playerZone) return;
 
-  if (gameRunning && gameSession.humanPlayer === Player.P1 && currentState.current === Player.P1) {
-    const moves = legalMoves(currentState);
-    if (moves.length > 0) {
-      p1Html += '<div class="draggable-pieces" style="margin-top: 10px;">';
-      if (p1Supply.regular > 0 && moves.some(m => m.pieceType === 'regular' && m.action === 'place')) {
-        p1Html += '<div class="draggable-piece" data-piece="regular" data-action="place"><img src="images/piece_owl.png" alt="Regular piece"></div>';
-      } else {
-        p1Html += '<div class="draggable-piece disabled" data-piece="regular"><img src="images/piece_owl.png" alt="Regular piece"></div>';
-      }
-      if (p1Supply.pusher > 0 && moves.some(m => m.pieceType === 'pusher' && m.action === 'eject')) {
-        p1Html += '<div class="draggable-piece" data-piece="pusher" data-action="eject"><img src="images/house_blue.png" alt="Pusher piece"></div>';
-      } else {
-        p1Html += '<div class="draggable-piece disabled" data-piece="pusher"><img src="images/house_blue.png" alt="Pusher piece"></div>';
-      }
-      if (p1Supply.yellow > 0 && moves.some(m => m.pieceType === 'yellow' && m.action === 'eject')) {
-        p1Html += '<div class="draggable-piece" data-piece="yellow" data-action="eject"><img src="images/piece_koala.png" alt="Koala piece"></div>';
-      } else {
-        p1Html += '<div class="draggable-piece disabled" data-piece="yellow"><img src="images/piece_koala.png" alt="Koala piece"></div>';
-      }
-      p1Html += '</div>';
+  const humanIsP1 = gameSession.humanPlayer === Player.P1;
+  const humanIsP2 = gameSession.humanPlayer === Player.P2;
+
+  function getPieceImage(player, pieceType) {
+    if (pieceType === PieceType.REGULAR) {
+      return player === Player.P1 ? 'images/piece_owl.png' : 'images/piece_squirrel.png';
+    } else if (pieceType === PieceType.PUSHER) {
+      return player === Player.P1 ? 'images/house_blue.png' : 'images/house_red.png';
+    } else if (pieceType === PieceType.YELLOW) {
+      return 'images/piece_koala.png';
     }
+    return 'images/piece_owl.png';
   }
-  p1Html += '</div>';
-  p1Container.innerHTML = p1Html;
 
-  // Render Player 2 supply (below board)
-  let p2Html = `
-    <div class="supply-panel">
-        <h3 style="color: #ff6666;">Player 2 Supply ${gameSession.humanPlayer === Player.P2 ? '(You)' : ''}</h3>
-        <div class="supply-items">
-            <div class="supply-item"><span>Regular:</span> <strong>${p2Supply.regular}</strong></div>
-            <div class="supply-item"><span>Pusher:</span> <strong>${p2Supply.pusher}</strong></div>
-            <div class="supply-item"><span>Koala:</span> <strong>${p2Supply.yellow}</strong></div>
-        </div>`;
+  function buildSupplyHTML(playerIdx, supply, isInteractive) {
+    const player = playerIdx === 0 ? Player.P1 : Player.P2;
+    const moves = isInteractive && gameRunning && currentState.current === player
+      ? legalMoves(currentState)
+      : [];
 
-  if (gameRunning && gameSession.humanPlayer === Player.P2 && currentState.current === Player.P2) {
-    const moves = legalMoves(currentState);
-    if (moves.length > 0) {
-      p2Html += '<div class="draggable-pieces" style="margin-top: 10px;">';
-      if (p2Supply.regular > 0 && moves.some(m => m.pieceType === 'regular' && m.action === 'place')) {
-        p2Html += '<div class="draggable-piece" data-piece="regular" data-action="place"><img src="images/piece_squirrel.png" alt="Regular piece"></div>';
-      } else {
-        p2Html += '<div class="draggable-piece disabled" data-piece="regular"><img src="images/piece_squirrel.png" alt="Regular piece"></div>';
-      }
-      if (p2Supply.pusher > 0 && moves.some(m => m.pieceType === 'pusher' && m.action === 'eject')) {
-        p2Html += '<div class="draggable-piece" data-piece="pusher" data-action="eject"><img src="images/house_red.png" alt="Pusher piece"></div>';
-      } else {
-        p2Html += '<div class="draggable-piece disabled" data-piece="pusher"><img src="images/house_red.png" alt="Pusher piece"></div>';
-      }
-      if (p2Supply.yellow > 0 && moves.some(m => m.pieceType === 'yellow' && m.action === 'eject')) {
-        p2Html += '<div class="draggable-piece" data-piece="yellow" data-action="eject"><img src="images/piece_koala.png" alt="Koala piece"></div>';
-      } else {
-        p2Html += '<div class="draggable-piece disabled" data-piece="yellow"><img src="images/piece_koala.png" alt="Koala piece"></div>';
-      }
-      p2Html += '</div>';
+    let html = '<div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">';
+
+    // Regular pieces
+    if (supply.regular > 0) {
+      const hasMove = moves.some(m => m.pieceType === PieceType.REGULAR && m.action === 'place');
+      const isSelected = selectedPiece && selectedPiece.pieceType === PieceType.REGULAR && selectedPiece.action === 'place';
+      let classes = isInteractive ? (hasMove ? 'draggable-piece' : 'draggable-piece disabled') : 'draggable-piece disabled';
+      if (isSelected) classes += ' selected';
+      html += `<div class="${classes}" data-piece="regular" data-action="place" style="display: flex; align-items: center; justify-content: center; padding: 0; position: relative;">
+        <img src="${getPieceImage(player, PieceType.REGULAR)}" alt="Regular piece" style="width: 100%; height: 100%; object-fit: contain; padding: 2px;">
+        <span style="position: absolute; bottom: 2px; right: 4px; font-size: 11px; color: var(--cream); font-weight: 700; background: rgba(0,0,0,0.5); border-radius: 2px; padding: 1px 3px;">${supply.regular}</span>
+      </div>`;
     }
-  }
-  p2Html += '</div>';
-  p2Container.innerHTML = p2Html;
 
-  // Attach drag handlers
-  document.querySelectorAll('.draggable-piece:not(.disabled)').forEach(el => {
-    el.addEventListener('mousedown', startDrag);
-    el.addEventListener('touchstart', startDrag);
+    // House pieces
+    if (supply.pusher > 0) {
+      const hasMove = moves.some(m => m.pieceType === PieceType.PUSHER && m.action === 'eject');
+      const isSelected = selectedPiece && selectedPiece.pieceType === PieceType.PUSHER && selectedPiece.action === 'eject';
+      let classes = isInteractive ? (hasMove ? 'draggable-piece' : 'draggable-piece disabled') : 'draggable-piece disabled';
+      if (isSelected) classes += ' selected';
+      html += `<div class="${classes}" data-piece="pusher" data-action="eject" style="display: flex; align-items: center; justify-content: center; padding: 0; position: relative;">
+        <img src="${getPieceImage(player, PieceType.PUSHER)}" alt="House piece" style="width: 100%; height: 100%; object-fit: contain; padding: 2px;">
+        <span style="position: absolute; bottom: 2px; right: 4px; font-size: 11px; color: var(--cream); font-weight: 700; background: rgba(0,0,0,0.5); border-radius: 2px; padding: 1px 3px;">${supply.pusher}</span>
+      </div>`;
+    }
+
+    // Yellow/Koala pieces
+    if (supply.yellow > 0) {
+      const hasMove = moves.some(m => m.pieceType === PieceType.YELLOW && m.action === 'eject');
+      const isSelected = selectedPiece && selectedPiece.pieceType === PieceType.YELLOW && selectedPiece.action === 'eject';
+      let classes = isInteractive ? (hasMove ? 'draggable-piece' : 'draggable-piece disabled') : 'draggable-piece disabled';
+      if (isSelected) classes += ' selected';
+      html += `<div class="${classes}" data-piece="yellow" data-action="eject" style="display: flex; align-items: center; justify-content: center; padding: 0; position: relative;">
+        <img src="${getPieceImage(player, PieceType.YELLOW)}" alt="Koala piece" style="width: 100%; height: 100%; object-fit: contain; padding: 2px;">
+        <span style="position: absolute; bottom: 2px; right: 4px; font-size: 11px; color: var(--cream); font-weight: 700; background: rgba(0,0,0,0.5); border-radius: 2px; padding: 1px 3px;">${supply.yellow}</span>
+      </div>`;
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  if (humanIsP1 || humanIsP2) {
+    // vs-AI mode
+    const opponentIdx = humanIsP1 ? 1 : 0;
+    const playerIdx = humanIsP1 ? 0 : 1;
+    const opponentSupply = currentState.supply[opponentIdx];
+    const playerSupply = currentState.supply[playerIdx];
+
+    // Opponent zone (read-only)
+    opponentZone.innerHTML = `<span class="supply-zone-label">Opponent</span>` + buildSupplyHTML(opponentIdx, opponentSupply, false);
+    opponentZone.className = 'supply-zone supply-zone--opponent ' + (opponentIdx === 0 ? 'p1-accent' : 'p2-accent');
+
+    // Player zone (interactive)
+    playerZone.innerHTML = `<span class="supply-zone-label">Your pieces</span>` + buildSupplyHTML(playerIdx, playerSupply, true);
+    playerZone.className = 'supply-zone supply-zone--player ' + (playerIdx === 0 ? 'p1-accent' : 'p2-accent');
+    if (currentState.current === (playerIdx === 0 ? Player.P1 : Player.P2)) {
+      playerZone.classList.add('your-turn');
+    }
+  } else {
+    // Watch mode
+    const p1Supply = currentState.supply[0];
+    const p2Supply = currentState.supply[1];
+
+    opponentZone.innerHTML = `<span class="supply-zone-label">Player 1</span>` + buildSupplyHTML(0, p1Supply, false);
+    opponentZone.className = 'supply-zone supply-zone--opponent p1-accent';
+
+    playerZone.innerHTML = `<span class="supply-zone-label">Player 2</span>` + buildSupplyHTML(1, p2Supply, false);
+    playerZone.className = 'supply-zone supply-zone--player p2-accent';
+  }
+
+  // Attach drag and tap-to-select handlers to new draggable pieces
+  document.querySelectorAll('#opponentSupplyZone .draggable-piece:not(.disabled), #playerSupplyZone .draggable-piece:not(.disabled)').forEach(el => {
+    // Tap-to-select handler (click for desktop, after touch ends on mobile)
+    el.addEventListener('click', (e) => {
+      if (!gameRunning || !gameSession.waitingForHuman) return;
+
+      const pieceType = el.dataset.piece;
+      const action = el.dataset.action;
+
+      // Toggle selection: if clicking the same piece, deselect it
+      if (selectedPiece && selectedPiece.pieceType === pieceType && selectedPiece.action === action) {
+        selectedPiece = null;
+      } else {
+        selectedPiece = { pieceType, action };
+      }
+
+      renderBoard();
+      updateSupplyZones();
+    });
+
+    // Drag handlers
+    el.addEventListener('mousedown', (e) => {
+      // Clear selection when starting drag
+      selectedPiece = null;
+      startDrag(e);
+    });
+    el.addEventListener('touchstart', (e) => {
+      // Clear selection when starting drag
+      selectedPiece = null;
+      startDrag(e);
+    });
   });
 }
 
+function updateSupply() {
+  updateSupplyZones();
+}
+
 function updateCurrentPlayer() {
-  const elem = document.getElementById('currentPlayer');
-  const playerName = currentState.current === Player.P1 ? 'Player 1' : 'Player 2';
-  const className = currentState.current === Player.P1 ? 'p1' : 'p2';
-  elem.textContent = `${playerName}'s turn`;
-  elem.className = `current-player ${className}`;
+  const isP1 = currentState.current === Player.P1;
+  const isHumanTurn = gameSession.waitingForHuman;
+  const playerName = isP1 ? 'Player 1' : 'Player 2';
 
-  updateControlsVisibility();
-
-  if (isTerminal(currentState)) {
+  // Update turn banner (Phase 2)
+  const banner = document.getElementById('turnBanner');
+  banner.className = 'turn-banner ' + (isP1 ? 'p1' : 'p2') + (isHumanTurn ? ' your-turn' : '');
+  if (isHumanTurn) {
+    banner.textContent = 'Your turn — tap a piece, then tap the board';
+  } else if (isTerminal(currentState)) {
     if (currentState.winner) {
       const winnerName = currentState.winner === Player.P1 ? 'Player 1' : 'Player 2';
-      updateGameStatus(`Game Over! ${winnerName} wins!`);
+      banner.textContent = `${winnerName} wins!`;
     } else {
-      updateGameStatus('Game Over! Stalemate');
+      banner.textContent = 'Draw!';
     }
-    document.getElementById('playAgainBtn').style.display = 'block';
   } else {
-    document.getElementById('playAgainBtn').style.display = 'none';
+    banner.textContent = `${playerName}'s turn`;
   }
 }
 
-function updateControlsVisibility() {
-  // Disable game control buttons during human's turn (they can still pause/reset)
-  const btnPlay = document.getElementById('btnPlay');
-  const btnStep = document.getElementById('btnStep');
-  const speedSlider = document.getElementById('speedSlider');
+function updateWatchControlsVisibility() {
+  // Phase 2: Toggle watch controls based on game mode
+  const isWatchMode = !gameSession.humanPlayer;
+  const watchControls = document.getElementById('watchControls');
+  const playControls = document.getElementById('playControls');
 
-  if (gameSession.waitingForHuman) {
-    btnPlay.disabled = true;
-    btnStep.disabled = true;
-    speedSlider.disabled = true;
-  } else {
-    btnPlay.disabled = false;
-    btnStep.disabled = gameRunning || isTerminal(currentState);
-    speedSlider.disabled = false;
+  if (watchControls) {
+    watchControls.classList.toggle('hidden', !isWatchMode);
+  }
+  if (playControls) {
+    playControls.classList.toggle('hidden', isWatchMode);
   }
 }
 
 function updateGameStatus(status) {
-  document.getElementById('gameStatus').textContent = status;
+  const elem = document.getElementById('gameStatus');
+  if (elem) elem.textContent = status;
 }
 
 // ============ Drag and Drop ============
@@ -310,7 +436,8 @@ function startDrag(e) {
   document.addEventListener('mouseup', onDragDrop);
   document.addEventListener('touchmove', onDragMove, { passive: false });
   document.addEventListener('touchend', onDragDrop);
-  document.body.style.overflow = 'hidden';
+  // Use 'scroll' instead of 'hidden' to prevent scrollbar flicker
+  document.body.style.overflowY = 'scroll';
   document.getElementById('board').classList.add('dragging');
   renderBoard();
 }
@@ -329,7 +456,7 @@ function onDragDrop(e) {
   document.removeEventListener('mouseup', onDragDrop);
   document.removeEventListener('touchmove', onDragMove);
   document.removeEventListener('touchend', onDragDrop);
-  document.body.style.overflow = '';
+  document.body.style.overflowY = '';
 
   document.getElementById('board').classList.remove('dragging');
 
@@ -407,133 +534,175 @@ function onStateUpdate(state) {
 
 function onGameOver(state) {
   currentState = state;
+  gameRunning = false;
   renderBoard();
   updateSupply();
   updateCurrentPlayer();
-  gameRunning = false;
+
+  // Show game-over overlay (Phase 5)
+  const overlay = document.getElementById('gameOverOverlay');
+  const winnerDiv = document.getElementById('gameOverWinner');
+
+  if (state.winner) {
+    if (gameSession.humanPlayer) {
+      // vs-AI mode: show personalized message
+      const isHumanWinner = state.winner === gameSession.humanPlayer;
+      winnerDiv.textContent = isHumanWinner ? 'You Win! 🎉' : 'Opponent Wins';
+    } else {
+      // Watch mode: show player name
+      const winnerName = state.winner === Player.P1 ? 'Player 1' : 'Player 2';
+      winnerDiv.textContent = `${winnerName} Wins! 🎉`;
+    }
+  } else {
+    winnerDiv.textContent = 'Draw!';
+  }
+
+  overlay.classList.remove('hidden');
 }
 
-// ============ Button Handlers ============
+// ============ Game Over Overlay Handler (Phase 5) ============
 
-document.getElementById('btnPlay').addEventListener('click', () => {
-  if (!gameRunning && !isTerminal(gameSession.state)) {
+document.getElementById('playAgainBtn2').addEventListener('click', () => {
+  document.getElementById('gameOverOverlay').classList.add('hidden');
+  performReset();
+});
+
+document.getElementById('returnToMenuBtn').addEventListener('click', () => {
+  document.getElementById('gameOverOverlay').classList.add('hidden');
+  gameRunning = false;
+  gameSession.running = false;
+  gameSession.reset();
+  currentState = gameSession.state;
+  dragState = null;
+  selectedPiece = null;
+  renderBoard();
+  updateSupply();
+  updateCurrentPlayer();
+  document.getElementById('welcomeOverlay').classList.remove('hidden');
+});
+
+// ============ Menu Modal Handler (Phase 4) ============
+
+document.getElementById('menuBtn').addEventListener('click', () => {
+  document.getElementById('menuModal').classList.remove('hidden');
+  // Sync the speed slider value
+  const menuSlider = document.getElementById('speedSliderMenu');
+  if (menuSlider) {
+    menuSlider.value = gameSession.speedMs;
+  }
+});
+
+document.getElementById('menuModalClose').addEventListener('click', () => {
+  document.getElementById('menuModal').classList.add('hidden');
+});
+
+document.getElementById('btnNewGame').addEventListener('click', () => {
+  // Stop game, reset, and show welcome overlay
+  gameRunning = false;
+  gameSession.running = false;
+  document.getElementById('menuModal').classList.add('hidden');
+  gameSession.reset();
+  currentState = gameSession.state;
+  dragState = null;
+  selectedPiece = null;
+  renderBoard();
+  updateSupply();
+  updateCurrentPlayer();
+  document.getElementById('welcomeOverlay').classList.remove('hidden');
+});
+
+// Speed slider in menu (Phase 4)
+const speedSliderMenu = document.getElementById('speedSliderMenu');
+if (speedSliderMenu) {
+  speedSliderMenu.addEventListener('input', (e) => {
+    gameSession.speedMs = parseInt(e.target.value);
+  });
+}
+
+// ============ Canvas Click Handler (Tap-to-Place) ============
+
+document.getElementById('board').addEventListener('click', (e) => {
+  if (!selectedPiece || !gameRunning || !gameSession.waitingForHuman) return;
+
+  const canvas = document.getElementById('board');
+  const rect = canvas.getBoundingClientRect();
+
+  // Calculate coordinates relative to canvas
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  // Scale coordinates to canvas internal size (account for CSS scaling on mobile)
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const scaledX = x * scaleX;
+  const scaledY = y * scaleY;
+
+  const col = Math.floor(scaledX / CELL_SIZE);
+  const row = Math.floor(scaledY / CELL_SIZE);
+
+  if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+    // Click outside board - clear selection
+    selectedPiece = null;
+    renderBoard();
+    updateSupplyZones();
+    return;
+  }
+
+  // Find matching move
+  const moves = legalMoves(currentState);
+  const matchingMove = moves.find(m =>
+    m.pieceType === selectedPiece.pieceType &&
+    m.action === selectedPiece.action &&
+    m.row === row &&
+    m.col === col
+  );
+
+  if (matchingMove) {
+    try {
+      gameSession.submitHumanMove(matchingMove);
+      updateGameStatus('Move sent. Waiting for opponent...');
+      selectedPiece = null;
+    } catch (err) {
+      console.error('Error submitting move:', err);
+      updateGameStatus(`Error: ${err.message}`);
+    }
+  } else {
+    // Tap on non-legal cell - clear selection
+    selectedPiece = null;
+  }
+
+  renderBoard();
+  updateSupplyZones();
+});
+
+// ============ Reset Button Handler ============
+
+function performReset() {
+  gameRunning = false;
+  gameSession.reset();
+  currentState = gameSession.state;
+  dragState = null;
+  selectedPiece = null;
+  updateGameStatus('Game reset');
+  renderBoard();
+  updateSupply();
+  updateCurrentPlayer();
+
+  // Auto-restart the game loop if there's a human player
+  if (gameSession.humanPlayer) {
     gameRunning = true;
     gameSession.running = true;
     currentState = gameSession.state;
     runGameLoop(gameSession, onStateUpdate, onGameOver);
-    updateGameStatus('Playing...');
+    updateGameStatus('Your turn!');
+    updateWatchControlsVisibility();
   }
-});
-
-document.getElementById('btnPause').addEventListener('click', () => {
-  if (gameRunning) {
-    gameRunning = false;
-    gameSession.running = false;
-    updateGameStatus('Paused');
-  }
-});
-
-document.getElementById('btnStep').addEventListener('click', () => {
-  if (!gameRunning && !isTerminal(gameSession.state)) {
-    // Single step: apply one move
-    const bot = gameSession.state.current === Player.P1 ? gameSession.botP1 : gameSession.botP2;
-    if (bot) {
-      const move = bot.chooseMove(gameSession.state);
-      gameSession.state = applyMove(gameSession.state, move);
-      currentState = gameSession.state;
-      onStateUpdate(currentState);
-      if (isTerminal(currentState)) {
-        onGameOver(currentState);
-      }
-    }
-  }
-});
-
-document.getElementById('btnReset').addEventListener('click', () => {
-  gameRunning = false;
-  gameSession.reset();
-  currentState = gameSession.state;
-  dragState = null;
-  updateGameStatus('Game reset');
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
-});
-
-document.getElementById('playAgainBtn').addEventListener('click', () => {
-  gameRunning = false;
-  gameSession.reset();
-  currentState = gameSession.state;
-  dragState = null;
-  updateGameStatus('Game reset');
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
-});
-
-document.getElementById('speedSlider').addEventListener('input', (e) => {
-  gameSession.speedMs = parseInt(e.target.value);
-});
-
-document.getElementById('thinkTimeSlider').addEventListener('input', (e) => {
-  mctsCThinkTime = parseInt(e.target.value);
-  document.getElementById('thinkTimeValue').textContent = mctsCThinkTime;
-  // Update bots if they exist
-  gameSession.setMCTSThinkTime(mctsCThinkTime);
-});
-
-document.getElementById('bot1Select').addEventListener('change', (e) => {
-  const bot1 = e.target.value;
-  const bot2 = document.getElementById('bot2Select').value;
-  gameSession.setBots(bot1, bot2);
-  updatePlayerLabels();
-  gameSession.reset();
-  currentState = gameSession.state;
-  updateGameStatus('Bots changed. Game reset.');
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
-});
-
-document.getElementById('bot2Select').addEventListener('change', (e) => {
-  const bot2 = e.target.value;
-  const bot1 = document.getElementById('bot1Select').value;
-  gameSession.setBots(bot1, bot2);
-  updatePlayerLabels();
-  gameSession.reset();
-  currentState = gameSession.state;
-  updateGameStatus('Bots changed. Game reset.');
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
-});
-
-function updatePlayerLabels() {
-  document.getElementById('humanHint').style.display = gameSession.humanPlayer ? 'block' : 'none';
 }
 
-document.getElementById('modeSelect').addEventListener('change', (e) => {
-  currentMode = e.target.value;
-  updateModeUI();
-});
-
-function updateModeUI() {
-  const boardWithSupply = document.querySelector('.board-with-supply');
-  const analysePanel = document.getElementById('analysePanel');
-  const infoPanel = document.querySelector('.info-panel');
-  const humanOptions = document.querySelectorAll('option[value="human"]');
-
-  if (currentMode === 'watch') {
-    boardWithSupply.style.display = 'flex';
-    analysePanel.classList.remove('visible');
-    infoPanel.style.display = 'block';
-    humanOptions.forEach(opt => opt.disabled = false);
-  } else {
-    boardWithSupply.style.display = 'none';
-    analysePanel.classList.add('visible');
-    infoPanel.style.display = 'none';
-    humanOptions.forEach(opt => opt.disabled = true);
-  }
+// Wire new Reset button (Phase 2)
+const btnReset2 = document.getElementById('btnReset2');
+if (btnReset2) {
+  btnReset2.addEventListener('click', performReset);
 }
 
 // ============ Analysis ============
