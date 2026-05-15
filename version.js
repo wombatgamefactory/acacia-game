@@ -1,2 +1,2 @@
 // Version number - increment with each commit
-const APP_VERSION = '23';
+const APP_VERSION = '24';

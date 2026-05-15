@@ -4,43 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acacia Game</title>
+
+    <link rel="stylesheet" href="../wombatgamefactory.github.io/css/style.css">
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
-
-        :root {
-          --bg-dark: #16130f;
-          --bg-card: #1e1a14;
-          --bg-mid: #211d16;
-          --bg-light: #2c261d;
-          --copper: #c4723a;
-          --copper-light: #e09060;
-          --gold: #d4a843;
-          --silver: #9aabb8;
-          --cream: #f0e6d3;
-          --text: #c8bcae;
-          --text-muted: #7a6e60;
-          --border: #352e22;
-          --border-light: #4a4035;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Crimson Pro', Georgia, serif;
-            background: var(--bg-dark);
-            color: var(--text);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            min-height: 100vh;
-            padding: 0;
-        }
-
         main {
             display: flex;
             flex-direction: column;
@@ -48,11 +15,6 @@
             justify-content: center;
             width: 100%;
             padding: 20px;
-        }
-
-        h1 {
-            margin-bottom: 20px;
-            font-size: 28px;
         }
 
         #titleLogo {
@@ -473,171 +435,6 @@
             h1 {
                 font-size: 24px;
             }
-        }
-
-        /* ── Navigation ── */
-        .site-nav {
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          background: rgba(22, 19, 15, 0.96);
-          backdrop-filter: blur(12px);
-          border-bottom: 1px solid var(--border);
-          padding: 1rem 0;
-        }
-
-        .container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 2rem;
-        }
-
-        .nav-inner {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .nav-logo {
-          font-family: 'Oswald', sans-serif;
-          font-weight: 600;
-          font-size: 1.1rem;
-          letter-spacing: 0.15em;
-          text-transform: uppercase;
-          color: var(--cream);
-          text-decoration: none;
-        }
-
-        .nav-logo span {
-          color: var(--copper);
-        }
-
-        .nav-links {
-          display: flex;
-          gap: 2rem;
-          list-style: none;
-        }
-
-        .nav-links a {
-          font-family: 'Oswald', sans-serif;
-          font-size: 0.82rem;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--text-muted);
-          transition: color 0.2s;
-          text-decoration: none;
-        }
-
-        .nav-links a:hover {
-          color: var(--copper-light);
-        }
-
-        .nav-links a.current {
-          color: var(--copper-light);
-        }
-
-        /* ── Breadcrumb ── */
-        .breadcrumb-bar {
-          border-bottom: 1px solid var(--border);
-          padding: 0.9rem 0;
-          background: var(--bg-mid);
-        }
-
-        .breadcrumb {
-          font-family: 'Oswald', sans-serif;
-          font-size: 0.72rem;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--text-muted);
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-        }
-
-        .breadcrumb a {
-          color: var(--text-muted);
-          text-decoration: none;
-          transition: color 0.2s;
-        }
-
-        .breadcrumb a:hover {
-          color: var(--copper-light);
-        }
-
-        .breadcrumb-sep {
-          color: var(--border-light);
-        }
-
-        .breadcrumb-current {
-          color: var(--cream);
-        }
-
-        a.breadcrumb-current {
-          color: var(--cream);
-          text-decoration: none;
-        }
-
-        a.breadcrumb-current:hover {
-          color: var(--copper-light);
-        }
-
-        /* ── Footer ── */
-        .site-footer {
-          background: var(--bg-dark);
-          border-top: 1px solid var(--border);
-          padding: 3rem 0 2rem;
-          margin-top: auto;
-        }
-
-        .footer-inner {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 2rem;
-        }
-
-        .footer-logo {
-          font-family: 'Oswald', sans-serif;
-          font-weight: 600;
-          font-size: 1rem;
-          letter-spacing: 0.15em;
-          text-transform: uppercase;
-          color: var(--cream);
-          text-decoration: none;
-        }
-
-        .footer-logo span {
-          color: var(--copper);
-        }
-
-        .footer-links {
-          display: flex;
-          gap: 2rem;
-          list-style: none;
-        }
-
-        .footer-links a {
-          font-family: 'Oswald', sans-serif;
-          font-size: 0.82rem;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--text-muted);
-          transition: color 0.2s;
-          text-decoration: none;
-        }
-
-        .footer-links a:hover {
-          color: var(--copper-light);
-        }
-
-        .footer-copy {
-          font-size: 0.75rem;
-          color: var(--text-muted);
-          text-align: center;
-          width: 100%;
-          padding-top: 1rem;
-          border-top: 1px solid var(--border);
         }
 
         /* Mobile: 768px and below */
