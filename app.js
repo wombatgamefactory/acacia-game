@@ -869,17 +869,24 @@ if (btnRunAnalysis) {
     runBtn.textContent = 'Running...';
 
     const iterations = parseInt(document.getElementById('iterationsInput').value) || 20;
-    const bot1 = document.getElementById('bot1Select').value;
-    const bot2 = document.getElementById('bot2Select').value;
+    // Analysis always uses MCTS vs Random for testing
+    const bot1 = 'mcts';
+    const bot2 = 'random';
 
-    document.getElementById('analyseProgress').classList.add('visible');
-    document.getElementById('statsGrid').classList.remove('visible');
+    const analyseProgress = document.getElementById('analyseProgress');
+    const statsGrid = document.getElementById('statsGrid');
+
+    if (analyseProgress) analyseProgress.classList.add('visible');
+    if (statsGrid) statsGrid.classList.remove('visible');
 
     // Initialize progress display
-    document.getElementById('currentGameStatus').textContent = `Starting Game 1 of ${iterations}...`;
-    document.getElementById('progressBarFill').style.width = '0%';
+    const gameStatus = document.getElementById('currentGameStatus');
+    const progressBar = document.getElementById('progressBarFill');
 
-    console.log('[Analysis] Starting with iterations:', iterations, 'bots:', bot1, bot2);
+    if (gameStatus) gameStatus.textContent = `Starting Game 1 of ${iterations}...`;
+    if (progressBar) progressBar.style.width = '0%';
+
+    console.log('[Analysis] Starting with iterations:', iterations, 'bots:', bot1, 'vs', bot2);
     runAnalysis(iterations, bot1, bot2, updateAnalysisProgress, displayAnalysisResults);
   });
 }

@@ -27,7 +27,7 @@ function runAnalysis(iterations, bot1Type, bot2Type, onProgress, onComplete) {
       iterations,
       bot1Type,
       bot2Type,
-      mctsThinkTime: window.mctsCThinkTime || 200
+      mctsThinkTime: 200
     });
   } catch (err) {
     console.error('Failed to create worker:', err);
