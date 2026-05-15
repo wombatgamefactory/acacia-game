@@ -18,18 +18,23 @@ let selectedPiece = null;       // {pieceType, action} | null — for tap-to-sel
 
 // Initialize on load
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('versionNumber').textContent = APP_VERSION;
+  console.log('[App] Initializing game...');
+  const versionElem = document.getElementById('versionNumber');
+  if (versionElem) versionElem.textContent = APP_VERSION;
   preloadImages();
   renderBoard();
   updateSupply();
   updateCurrentPlayer();
   initWelcomeScreen();
+  console.log('[App] Game initialization complete');
 });
 
 // ============ Welcome Screen ============
 
 function initWelcomeScreen() {
   const overlay = document.getElementById('welcomeOverlay');
+  if (!overlay) return; // Welcome screen not available
+
   const modeButtons = document.querySelectorAll('.welcome-mode-btn');
   const toggleButtons = document.querySelectorAll('.welcome-toggle');
 
@@ -40,7 +45,9 @@ function initWelcomeScreen() {
       modeButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const difficultySection = document.getElementById('welcomeDifficulty');
-      difficultySection.style.display = welcomeMode === 'vs-ai' ? 'block' : 'none';
+      if (difficultySection) {
+        difficultySection.style.display = welcomeMode === 'vs-ai' ? 'block' : 'none';
+      }
     });
   });
 
@@ -54,20 +61,31 @@ function initWelcomeScreen() {
   });
 
   // Rules modal
-  document.getElementById('welcomeRulesBtn').addEventListener('click', () => {
-    document.getElementById('rulesModal').classList.remove('hidden');
-  });
+  const rulesBtn = document.getElementById('welcomeRulesBtn');
+  if (rulesBtn) {
+    rulesBtn.addEventListener('click', () => {
+      const rulesModal = document.getElementById('rulesModal');
+      if (rulesModal) rulesModal.classList.remove('hidden');
+    });
+  }
 
-  document.getElementById('rulesModalClose').addEventListener('click', () => {
-    document.getElementById('rulesModal').classList.add('hidden');
-  });
+  const rulesModalClose = document.getElementById('rulesModalClose');
+  if (rulesModalClose) {
+    rulesModalClose.addEventListener('click', () => {
+      const rulesModal = document.getElementById('rulesModal');
+      if (rulesModal) rulesModal.classList.add('hidden');
+    });
+  }
 
   // Start game
-  document.getElementById('welcomeStartBtn').addEventListener('click', () => {
-    applyWelcomeConfig();
-    overlay.classList.add('hidden');
-    startGameFromWelcome();
-  });
+  const startBtn = document.getElementById('welcomeStartBtn');
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      applyWelcomeConfig();
+      overlay.classList.add('hidden');
+      startGameFromWelcome();
+    });
+  }
 }
 
 function applyWelcomeConfig() {
