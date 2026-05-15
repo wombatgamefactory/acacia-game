@@ -581,6 +581,65 @@
           color: var(--copper-light);
         }
 
+        /* ── Footer ── */
+        .site-footer {
+          background: var(--bg-dark);
+          border-top: 1px solid var(--border);
+          padding: 3rem 0 2rem;
+          margin-top: auto;
+        }
+
+        .footer-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 2rem;
+        }
+
+        .footer-logo {
+          font-family: 'Oswald', sans-serif;
+          font-weight: 600;
+          font-size: 1rem;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          color: var(--cream);
+          text-decoration: none;
+        }
+
+        .footer-logo span {
+          color: var(--copper);
+        }
+
+        .footer-links {
+          display: flex;
+          gap: 2rem;
+          list-style: none;
+        }
+
+        .footer-links a {
+          font-family: 'Oswald', sans-serif;
+          font-size: 0.82rem;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+          transition: color 0.2s;
+          text-decoration: none;
+        }
+
+        .footer-links a:hover {
+          color: var(--copper-light);
+        }
+
+        .footer-copy {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          text-align: center;
+          width: 100%;
+          padding-top: 1rem;
+          border-top: 1px solid var(--border);
+        }
+
         /* Mobile: 768px and below */
         @media (max-width: 768px) {
             .nav-links {
@@ -889,6 +948,20 @@
     </div>
 
     </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-inner">
+                <a href="https://www.wombatgamefactory.com/" class="footer-logo">Wombat <span>Game Factory</span></a>
+                <ul class="footer-links">
+                    <li><a href="https://instagram.com/wombatgamefactory" target="_blank" rel="noopener">Instagram</a></li>
+                    <li><a href="https://youtube.com/@wombatgamefactory" target="_blank" rel="noopener">YouTube</a></li>
+                    <li><a href="https://boardgamegeek.com/boardgamedesigner/123443/dean-morris" target="_blank" rel="noopener">BoardGameGeek</a></li>
+                </ul>
+                <div class="footer-copy">© 2026 Dean Morris / Wombat Game Factory</div>
+            </div>
+        </div>
+    </footer>
 
     <!-- JavaScript modules loaded in dependency order -->
     <script src="version.js"></script>
