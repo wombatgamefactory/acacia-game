@@ -623,8 +623,8 @@
         }
 
         .welcome-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: var(--bg-card, #1a1a1a);
+            border: 1px solid var(--border, #444);
             border-radius: 12px;
             padding: 2rem;
             max-width: 440px;
@@ -643,12 +643,12 @@
         .welcome-title {
             font-size: 2rem;
             margin: 0;
-            color: var(--cream);
+            color: var(--cream, #f5f5dc);
             font-weight: 700;
         }
 
         .welcome-subtitle {
-            color: var(--text-muted);
+            color: var(--text-muted, #aaa);
             font-size: 14px;
             margin: 0;
         }
@@ -659,7 +659,7 @@
 
         .welcome-section h2 {
             font-size: 1rem;
-            color: var(--cream);
+            color: var(--cream, #f5f5dc);
             margin: 0 0 0.75rem;
         }
 
@@ -674,10 +674,10 @@
         .welcome-mode-btn,
         .welcome-toggle {
             padding: 0.6rem 1.25rem;
-            border: 2px solid var(--border);
+            border: 2px solid var(--border, #444);
             border-radius: 6px;
-            background: var(--bg-light);
-            color: var(--cream);
+            background: var(--bg-light, #2a2a2a);
+            color: var(--cream, #f5f5dc);
             cursor: pointer;
             font-size: 15px;
             font-weight: 500;
@@ -686,9 +686,9 @@
 
         .welcome-mode-btn.active,
         .welcome-toggle.active {
-            background: var(--copper);
-            border-color: var(--copper);
-            color: var(--bg-dark);
+            background: var(--copper, #d4a843);
+            border-color: var(--copper, #d4a843);
+            color: var(--bg-dark, #0a0a0a);
             font-weight: 600;
         }
 
@@ -697,8 +697,8 @@
             padding: 0.9rem;
             font-size: 1.1rem;
             font-weight: 700;
-            background: var(--copper);
-            color: var(--bg-dark);
+            background: var(--copper, #d4a843);
+            color: var(--bg-dark, #0a0a0a);
             border: none;
             border-radius: 8px;
             cursor: pointer;
@@ -706,13 +706,13 @@
         }
 
         .welcome-start-btn:hover {
-            background: var(--copper-light);
+            background: var(--copper-light, #e8c366);
         }
 
         .welcome-rules-link {
             background: none;
             border: none;
-            color: var(--text-muted);
+            color: var(--text-muted, #aaa);
             font-size: 13px;
             cursor: pointer;
             text-decoration: underline;
@@ -720,8 +720,8 @@
         }
 
         .modal-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: var(--bg-card, #1a1a1a);
+            border: 1px solid var(--border, #444);
             border-radius: 10px;
             padding: 1.5rem;
             max-width: 380px;
@@ -735,7 +735,7 @@
             right: 0.75rem;
             background: none;
             border: none;
-            color: var(--cream);
+            color: var(--cream, #f5f5dc);
             font-size: 1.5rem;
             cursor: pointer;
             padding: 0.25rem;
@@ -746,7 +746,7 @@
         .modal-card h3 {
             margin-top: 0;
             margin-bottom: 1rem;
-            color: var(--cream);
+            color: var(--cream, #f5f5dc);
         }
 
         .modal-card p {
