@@ -1,6 +1,6 @@
 // Analysis wrapper: spawns Web Worker for batch simulations
 
-function runAnalysis(iterations, bot1Type, bot2Type, onProgress, onComplete) {
+function runAnalysis(iterations, bot1Type, bot2Type, mctsThinkTime, onProgress, onComplete) {
   try {
     const worker = new Worker('js/analysis-worker.js');
 
@@ -27,7 +27,7 @@ function runAnalysis(iterations, bot1Type, bot2Type, onProgress, onComplete) {
       iterations,
       bot1Type,
       bot2Type,
-      mctsThinkTime: 200
+      mctsThinkTime: mctsThinkTime || 200
     });
   } catch (err) {
     console.error('Failed to create worker:', err);

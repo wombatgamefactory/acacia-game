@@ -14,6 +14,7 @@ let imageCache = {};
 // Welcome screen state
 let welcomeMode = 'vs-ai';      // 'vs-ai' | 'watch'
 let welcomeDifficulty = 'easy'; // 'easy' | 'hard'
+let welcomeMctsLevel = 200;     // MCTS think time in ms (100-1000, only used when difficulty=hard)
 let selectedPiece = null;       // {pieceType, action} | null — for tap-to-select (Phase 3)
 
 // Initialize on load
@@ -68,9 +69,10 @@ function initWelcomeScreen() {
       welcomeMode = btn.dataset.mode;
       modeButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      // Show difficulty section for both vs-ai and watch modes
       const difficultySection = document.getElementById('welcomeDifficulty');
       if (difficultySection) {
-        difficultySection.style.display = welcomeMode === 'vs-ai' ? 'block' : 'none';
+        difficultySection.style.display = 'block';
       }
     });
   });
@@ -81,8 +83,28 @@ function initWelcomeScreen() {
       welcomeDifficulty = btn.dataset.difficulty;
       toggleButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+
+      // Show/hide MCTS slider based on difficulty
+      const mctsControl = document.getElementById('welcomeMctsControl');
+      if (mctsControl) {
+        if (welcomeDifficulty === 'hard') {
+          mctsControl.classList.remove('hidden');
+        } else {
+          mctsControl.classList.add('hidden');
+        }
+      }
     });
   });
+
+  // MCTS Level slider (for hard difficulty)
+  const mctsSlider = document.getElementById('welcomeMctsSlider');
+  const mctsDisplay = document.getElementById('mctsLevelDisplay');
+  if (mctsSlider && mctsDisplay) {
+    mctsSlider.addEventListener('input', (e) => {
+      welcomeMctsLevel = parseInt(e.target.value, 10);
+      mctsDisplay.textContent = welcomeMctsLevel;
+    });
+  }
 
   // Rules modal
   const rulesBtn = document.getElementById('welcomeRulesBtn');
@@ -119,11 +141,17 @@ function applyWelcomeConfig() {
     gameSession.setBots('human', botType);
     // Set MCTS think time for harder difficulty
     if (botType === 'mcts') {
-      gameSession.setMCTSThinkTime(200);
+      gameSession.setMCTSThinkTime(welcomeMctsLevel);
     }
   } else if (welcomeMode === 'watch') {
-    // Watch mode: bot vs bot (MCTS vs Random)
+    // Watch mode: MCTS vs Random, with difficulty controlling MCTS think time
     gameSession.setBots('mcts', 'random');
+    if (welcomeDifficulty === 'hard') {
+      gameSession.setMCTSThinkTime(welcomeMctsLevel);
+    } else {
+      // Easy: faster MCTS (100ms default)
+      gameSession.setMCTSThinkTime(100);
+    }
   }
 }
 
@@ -886,7 +914,7 @@ if (btnRunAnalysis) {
     if (gameStatus) gameStatus.textContent = `Starting Game 1 of ${iterations}...`;
     if (progressBar) progressBar.style.width = '0%';
 
-    console.log('[Analysis] Starting with iterations:', iterations, 'bots:', bot1, 'vs', bot2);
-    runAnalysis(iterations, bot1, bot2, updateAnalysisProgress, displayAnalysisResults);
+    console.log('[Analysis] Starting with iterations:', iterations, 'bots:', bot1, 'vs', bot2, 'MCTS level:', welcomeMctsLevel);
+    runAnalysis(iterations, bot1, bot2, welcomeMctsLevel, updateAnalysisProgress, displayAnalysisResults);
   });
 }
