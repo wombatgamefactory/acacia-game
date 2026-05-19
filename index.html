@@ -142,6 +142,136 @@
             opacity: 0.6;
         }
 
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.2s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 2px solid var(--border);
+            position: relative;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--text-muted);
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-light);
+            color: var(--cream);
+        }
+
+        .modal h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--gold);
+            font-size: 28px;
+        }
+
+        .modal h3 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: var(--copper-light);
+            font-size: 18px;
+        }
+
+        .modal p {
+            margin: 10px 0;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .modal ul {
+            margin: 10px 0;
+            padding-left: 20px;
+            line-height: 1.8;
+        }
+
+        .modal li {
+            margin: 8px 0;
+            font-size: 15px;
+        }
+
+        .modal strong {
+            color: var(--copper-light);
+        }
+
+        /* Mobile modal */
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 20px;
+                max-width: calc(100% - 40px);
+                max-height: calc(100vh - 40px);
+                padding: 20px;
+            }
+
+            .modal h2 {
+                font-size: 22px;
+                margin-bottom: 15px;
+            }
+
+            .modal h3 {
+                font-size: 16px;
+                margin-top: 15px;
+            }
+
+            .modal p, .modal li {
+                font-size: 14px;
+            }
+        }
+
         .speed-control {
             display: flex;
             align-items: center;
@@ -766,13 +896,66 @@
             </div>
 
             <div class="info-panel">
-                <h3>How to Play</h3>
+                <h3><a id="howToPlayLink" style="cursor: pointer; color: inherit; text-decoration: underline;">How to Play</a></h3>
                 <p><strong>Goal:</strong> Form 4-in-a-row or place all pieces</p>
                 <p><strong>Blue:</strong> Player 1 (Owls & Houses)</p>
                 <p><strong>Red:</strong> Player 2 (Squirrels & Houses)</p>
                 <p><strong>Yellow:</strong> Koala (breaks lines, can't be ejected)</p>
                 <p id="humanHint" style="display:none; color: #ffff00; margin-top: 10px;"><strong>Drag pieces from your supply to the board!</strong></p>
             </div>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rulesModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" id="closeRulesModal">&times;</button>
+            <h2>Acacia Rules</h2>
+
+            <h3>Goal</h3>
+            <p>Be the first to form a continuous line of <strong>4 pieces of your colour</strong> (vertical, horizontal or diagonal), OR be the first to place all your pieces on the board.</p>
+
+            <h3>Components</h3>
+            <p><strong>Each player has:</strong></p>
+            <ul>
+                <li>8 regular pieces (in player colour)</li>
+                <li>4 pushing pieces (marked with a house symbol)</li>
+                <li>1 yellow koala piece</li>
+            </ul>
+            <p><strong>Shared:</strong> One 6×6 grid board</p>
+
+            <h3>Setup</h3>
+            <p>Players take turns. The starting player places 1 regular piece on any empty space. All remaining pieces start in each player's personal supply.</p>
+
+            <h3>On Your Turn — Choose ONE Action</h3>
+
+            <h4 style="color: var(--copper-light); margin-top: 15px;">A. Place a Regular Piece</h4>
+            <ul>
+                <li>Place 1 regular piece from your supply onto any empty space</li>
+                <li>The space must be <strong>adjacent to at least one piece already on the board</strong></li>
+                <li>Adjacent = orthogonally or diagonally (any of the 8 surrounding spaces)</li>
+                <li>The adjacent piece can be any colour (yours, opponent's or yellow)</li>
+            </ul>
+
+            <h4 style="color: var(--copper-light); margin-top: 15px;">B. Eject and Replace</h4>
+            <ul>
+                <li>Eject one opponent's piece and replace it with a piece from your own supply</li>
+                <li>You can only eject opponent's pieces (never yellow pieces)</li>
+                <li>To eject opponent's <strong>regular piece</strong>: place your <strong>pushing piece</strong> there</li>
+                <li>To eject opponent's <strong>pushing piece</strong>: place your <strong>yellow koala piece</strong> there</li>
+                <li>Ejected pieces return to the opponent's supply</li>
+            </ul>
+
+            <h3>Winning</h3>
+            <ul>
+                <li><strong>4 in a row</strong> (vertical, horizontal or diagonal) wins immediately</li>
+                <li>The line can be any mix of your regular and pushing pieces</li>
+                <li>Yellow pieces do NOT count for either player and break a line</li>
+                <li><strong>Place your last piece</strong> onto the board and win immediately</li>
+            </ul>
+
+            <h3>Board</h3>
+            <p>6 × 6 grid (36 spaces total)</p>
         </div>
     </div>
 
@@ -802,5 +985,26 @@
     <script src="js/gameloop.js"></script>
     <script src="js/analysis.js"></script>
     <script src="app.js"></script>
+
+    <!-- Rules Modal Handler -->
+    <script>
+        const rulesModal = document.getElementById('rulesModal');
+        const howToPlayLink = document.getElementById('howToPlayLink');
+        const closeRulesModal = document.getElementById('closeRulesModal');
+
+        howToPlayLink.addEventListener('click', () => {
+            rulesModal.classList.add('show');
+        });
+
+        closeRulesModal.addEventListener('click', () => {
+            rulesModal.classList.remove('show');
+        });
+
+        rulesModal.addEventListener('click', (event) => {
+            if (event.target === rulesModal) {
+                rulesModal.classList.remove('show');
+            }
+        });
+    </script>
 </body>
 </html>
