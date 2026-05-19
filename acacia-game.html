@@ -655,6 +655,8 @@
             padding: 2rem;
             max-width: 440px;
             width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -743,6 +745,50 @@
             cursor: pointer;
             text-decoration: underline;
             padding: 0;
+        }
+
+        .welcome-rules-content {
+            display: none;
+            width: 100%;
+            text-align: left;
+            padding: 1.5rem 0;
+            border-top: 1px solid var(--border, #444);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .welcome-rules-content.expanded {
+            display: block;
+        }
+
+        .welcome-rules-content h3 {
+            font-size: 0.95rem;
+            color: var(--cream, #f5f5dc);
+            margin: 1rem 0 0.5rem;
+            font-weight: 600;
+        }
+
+        .welcome-rules-content h3:first-child {
+            margin-top: 0;
+        }
+
+        .welcome-rules-content p {
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 0.5rem 0;
+            color: var(--cream, #f5f5dc);
+        }
+
+        .welcome-rules-content ul {
+            margin: 0.5rem 0;
+            padding-left: 1.25rem;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .welcome-rules-content li {
+            margin: 0.35rem 0;
+            color: var(--cream, #f5f5dc);
         }
 
         .modal-card {
@@ -1121,7 +1167,6 @@
     <div id="welcomeOverlay" class="welcome-overlay">
         <div class="welcome-card">
             <img class="welcome-logo" src="images/game_logo.png" alt="Acacia">
-            <h1 class="welcome-title">Acacia</h1>
             <p class="welcome-subtitle">A strategic board game for 2 players</p>
 
             <div class="welcome-section">
@@ -1146,19 +1191,50 @@
 
             <button class="welcome-start-btn" id="welcomeStartBtn">Start Game</button>
             <button class="welcome-rules-link" id="welcomeRulesBtn">How to play ›</button>
-        </div>
-    </div>
 
-    <!-- Rules Modal -->
-    <div id="rulesModal" class="modal-overlay hidden">
-        <div class="modal-card">
-            <button class="modal-close" id="rulesModalClose">×</button>
-            <h3>How to Play</h3>
-            <p><strong>Goal:</strong> Form 4-in-a-row or place all pieces</p>
-            <p><strong>Pieces:</strong> Regular (Owls/Squirrels), Houses, and Koala</p>
-            <p><strong>Actions:</strong> Place a piece adjacent to others, or eject an opponent's piece with yours</p>
-            <p><strong>Eject rules:</strong> House ejects Regular • Koala ejects Regular or House • (Koala can't be ejected)</p>
-            <p><strong>Your turn:</strong> Drag pieces from your supply to the board to play.</p>
+            <!-- Rules Content (Expandable) -->
+            <div class="welcome-rules-content" id="welcomeRulesContent">
+                <h3>Goal</h3>
+                <p>Be the first to form a continuous line of <strong>4 pieces of your colour</strong> (vertical, horizontal or diagonal), OR place all your pieces on the board.</p>
+
+                <h3>Components</h3>
+                <p><strong>Each player has:</strong></p>
+                <ul>
+                    <li>8 regular pieces (in player colour)</li>
+                    <li>4 pushing pieces (marked with a house symbol)</li>
+                    <li>1 yellow koala piece</li>
+                </ul>
+
+                <h3>Setup</h3>
+                <p>Players take turns. Start player places 1 regular piece on any empty space. All remaining pieces start in each player's supply.</p>
+
+                <h3>On Your Turn — Choose ONE Action</h3>
+
+                <p><strong>A. Place a Regular Piece</strong></p>
+                <ul>
+                    <li>Place 1 regular piece from your supply onto any empty space</li>
+                    <li>Must be adjacent to at least one piece already on board</li>
+                    <li>Adjacent = orthogonally or diagonally (any of 8 surrounding spaces)</li>
+                    <li>Adjacent piece can be any colour</li>
+                </ul>
+
+                <p><strong>B. Eject and Replace</strong></p>
+                <ul>
+                    <li>Eject one opponent's piece and replace it with your own</li>
+                    <li>Can only eject opponent's pieces (never yellow)</li>
+                    <li>For opponent's regular piece: place your pushing piece</li>
+                    <li>For opponent's pushing piece: place your yellow koala</li>
+                    <li>Ejected piece returns to opponent's supply</li>
+                </ul>
+
+                <h3>Winning</h3>
+                <ul>
+                    <li><strong>4 in a row</strong> (vertical, horizontal or diagonal) wins immediately</li>
+                    <li>Can be any mix of your regular and pushing pieces</li>
+                    <li>Yellow pieces do NOT count and break lines</li>
+                    <li><strong>Place your last piece</strong> on board and win immediately</li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -1319,5 +1395,21 @@
     <script src="js/gameloop.js"></script>
     <script src="js/analysis.js"></script>
     <script src="app.js"></script>
+
+    <!-- Rules Toggle Handler -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const rulesBtn = document.getElementById('welcomeRulesBtn');
+            const rulesContent = document.getElementById('welcomeRulesContent');
+
+            if (rulesBtn && rulesContent) {
+                rulesBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    rulesContent.classList.toggle('expanded');
+                    rulesBtn.textContent = rulesContent.classList.contains('expanded') ? '‹ Hide rules' : 'How to play ›';
+                });
+            }
+        });
+    </script>
 </body>
 </html>
