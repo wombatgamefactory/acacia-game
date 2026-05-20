@@ -136,9 +136,9 @@ function initWelcomeScreen() {
 
 function applyWelcomeConfig() {
   if (welcomeMode === 'vs-ai') {
-    // Human is P1, bot is P2
+    // Human is always P2 (red), bot is P1
     const botType = welcomeDifficulty === 'hard' ? 'mcts' : 'random';
-    gameSession.setBots('human', botType);
+    gameSession.setBots(botType, 'human');
     // Set MCTS think time for harder difficulty
     if (botType === 'mcts') {
       gameSession.setMCTSThinkTime(welcomeMctsLevel);

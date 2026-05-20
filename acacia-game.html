@@ -1289,19 +1289,19 @@
             <!-- New Mobile-First Layout -->
             <div class="game-layout">
                 <div class="game-main-col">
-                    <!-- Opponent Supply (top) -->
-                    <div id="opponentSupplyZone" class="supply-zone supply-zone--opponent"></div>
-
                     <!-- Turn Banner -->
                     <div id="turnBanner" class="turn-banner">Player 1's turn</div>
+
+                    <!-- Your Supply (above board) -->
+                    <div id="playerSupplyZone" class="supply-zone supply-zone--player"></div>
 
                     <!-- Board -->
                     <div class="board-wrap">
                         <canvas id="board" width="540" height="540" style="background: #ffffff;"></canvas>
                     </div>
 
-                    <!-- Your Supply (bottom) -->
-                    <div id="playerSupplyZone" class="supply-zone supply-zone--player"></div>
+                    <!-- Opponent Supply (below board) -->
+                    <div id="opponentSupplyZone" class="supply-zone supply-zone--opponent"></div>
 
                     <!-- Watch Controls (visible only in bot-vs-bot mode) -->
                     <div id="watchControls" class="watch-controls hidden">
