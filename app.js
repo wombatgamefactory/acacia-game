@@ -1,935 +1,835 @@
-// Main UI application - wires game engine to HTML/Canvas
+/* ==========================================================================
+   Acacia — UI layer
+   Wires the (unchanged) game engine to the board renderer, the piece trays,
+   the status line, the move history and the setup / menu / result screens.
+   ========================================================================== */
 
-const CELL_SIZE = 90;
-const BOARD_SIZE = 6;
-const PIECE_RADIUS = 30;
+const PLAYER_NAME = { 1: 'Owls', 2: 'Squirrels' };
+const PLAYER_SOLO = { 1: 'owl', 2: 'squirrel' };
+const PIECE_LABEL = { regular: 'regular piece', pusher: 'door', yellow: 'koala' };
 
-let gameSession = new GameSession();
-let currentState = gameSession.state;
-let gameRunning = false;
-let isAnalysing = false;
-let dragState = null;
-let imageCache = {};
+const CHIP_ART = {
+  1: { regular: 'images/pieces/owl.png',      pusher: 'images/pieces/door_blue.png', yellow: 'images/pieces/koala.png' },
+  2: { regular: 'images/pieces/squirrel.png', pusher: 'images/pieces/door_red.png',  yellow: 'images/pieces/koala.png' }
+};
 
-// Welcome screen state
-let welcomeMode = 'vs-ai';      // 'vs-ai' | 'watch'
-let welcomeDifficulty = 'easy'; // 'easy' | 'hard'
-let welcomeMctsLevel = 200;     // MCTS think time in ms (100-1000, only used when difficulty=hard)
-let selectedPiece = null;       // {pieceType, action} | null — for tap-to-select (Phase 3)
+const session = new GameSession();
 
-// Initialize on load
-window.addEventListener('DOMContentLoaded', () => {
-  console.log('[App] Initializing game...');
-  const versionElem = document.getElementById('versionNumber');
-  if (versionElem) versionElem.textContent = APP_VERSION;
-  preloadImages();
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
-  initWelcomeScreen();
-  console.log('[App] Game initialization complete');
+const ui = {
+  renderer: null,
+  state: session.state,
+  started: false,
+  paused: false,
+  selection: null,        // pieceType currently picked up
+  drag: null,
+  cursor: null,           // keyboard cursor {row, col}
+  log: [],
+  analysing: false,
+  setup: { mode: 'vs-ai', side: 'p2', difficulty: 'easy', strength: 200 }
+};
+
+const $ = id => document.getElementById(id);
+const cellName = (row, col) => `${'ABCDEF'[col]}${row + 1}`;
+const supplyOf = (state, player) => state.supply[player === Player.P1 ? 0 : 1];
+const otherPlayer = p => (p === Player.P1 ? Player.P2 : Player.P1);
+
+/* ==========================================================================
+   Boot
+   ========================================================================== */
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof APP_VERSION !== 'undefined') {
+    const el = $('versionNumber');
+    if (el) el.textContent = APP_VERSION;
+  }
+
+  ui.renderer = new BoardRenderer($('board'));
+  ui.renderer.reset(session.state);
+
+  fitBoard();
+  wireBoardFit();
+  wireSetupScreen();
+  wireMenu();
+  wireRules();
+  wireBoard();
+  wireControls();
+  wireAnalysis();
+
+  refresh({ animate: false });
 });
 
-// ============ Welcome Screen ============
+/* ==========================================================================
+   Board sizing
+   --------------------------------------------------------------------------
+   CSS alone cannot know how much vertical room the site header, trays, status
+   line and buttons leave behind, so the board's max size is measured. This is
+   what keeps the whole game on screen at any window size without scrolling.
+   ========================================================================== */
 
-function initWelcomeScreen() {
-  const overlay = document.getElementById('welcomeOverlay');
-  if (!overlay) {
-    console.warn('[Welcome] welcomeOverlay element not found');
-    return; // Welcome screen not available
-  }
+function fitBoard() {
+  const col = document.querySelector('.game-board-col');
+  const stage = document.querySelector('.board-stage');
+  if (!col || !stage) return;
 
-  // Ensure overlay is visible with inline styles as fallback
-  overlay.style.position = 'fixed';
-  overlay.style.inset = '0';
-  overlay.style.zIndex = '10000';
-  overlay.style.background = 'rgba(0, 0, 0, 0.85)';
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-  overlay.style.padding = '1rem';
+  const styles = getComputedStyle(col);
+  const rowGap = parseFloat(styles.rowGap) || 0;
+  const colGap = parseFloat(styles.columnGap) || 0;
+  const sideBySide = styles.display === 'grid';
 
-  console.log('[Welcome] welcomeOverlay found, display:', window.getComputedStyle(overlay).display);
-  console.log('[Welcome] welcomeOverlay visible:', overlay.offsetHeight > 0);
+  const top = stage.getBoundingClientRect().top + window.scrollY;
+  let available, width;
 
-  // Ensure welcome card is visible
-  const card = overlay.querySelector('.welcome-card');
-  if (card) {
-    card.style.background = card.style.background || '#1a1a1a';
-    card.style.border = card.style.border || '1px solid #444';
-    card.style.color = card.style.color || '#f5f5dc';
-  }
-
-  const modeButtons = document.querySelectorAll('.welcome-mode-btn');
-  const toggleButtons = document.querySelectorAll('.welcome-toggle');
-
-  // Mode toggle buttons
-  modeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      welcomeMode = btn.dataset.mode;
-      modeButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      // Show difficulty section for both vs-ai and watch modes
-      const difficultySection = document.getElementById('welcomeDifficulty');
-      if (difficultySection) {
-        difficultySection.style.display = 'block';
-      }
-    });
-  });
-
-  // Difficulty toggle
-  toggleButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      welcomeDifficulty = btn.dataset.difficulty;
-      toggleButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      // Show/hide MCTS slider based on difficulty
-      const mctsControl = document.getElementById('welcomeMctsControl');
-      if (mctsControl) {
-        if (welcomeDifficulty === 'hard') {
-          mctsControl.classList.remove('hidden');
-        } else {
-          mctsControl.classList.add('hidden');
-        }
-      }
-    });
-  });
-
-  // MCTS Level slider (for hard difficulty)
-  const mctsSlider = document.getElementById('welcomeMctsSlider');
-  const mctsDisplay = document.getElementById('mctsLevelDisplay');
-  if (mctsSlider && mctsDisplay) {
-    mctsSlider.addEventListener('input', (e) => {
-      welcomeMctsLevel = parseInt(e.target.value, 10);
-      mctsDisplay.textContent = welcomeMctsLevel;
-    });
-  }
-
-  // Rules modal
-  const rulesBtn = document.getElementById('welcomeRulesBtn');
-  if (rulesBtn) {
-    rulesBtn.addEventListener('click', () => {
-      const rulesModal = document.getElementById('rulesModal');
-      if (rulesModal) rulesModal.classList.remove('hidden');
-    });
-  }
-
-  const rulesModalClose = document.getElementById('rulesModalClose');
-  if (rulesModalClose) {
-    rulesModalClose.addEventListener('click', () => {
-      const rulesModal = document.getElementById('rulesModal');
-      if (rulesModal) rulesModal.classList.add('hidden');
-    });
-  }
-
-  // Start game
-  const startBtn = document.getElementById('welcomeStartBtn');
-  if (startBtn) {
-    startBtn.addEventListener('click', () => {
-      applyWelcomeConfig();
-      overlay.classList.add('hidden');
-      startGameFromWelcome();
-    });
-  }
-}
-
-function applyWelcomeConfig() {
-  if (welcomeMode === 'vs-ai') {
-    // Human is always P2 (red), bot is P1
-    const botType = welcomeDifficulty === 'hard' ? 'mcts' : 'random';
-    gameSession.setBots(botType, 'human');
-    // Set MCTS think time for harder difficulty
-    if (botType === 'mcts') {
-      gameSession.setMCTSThinkTime(welcomeMctsLevel);
-    }
-  } else if (welcomeMode === 'watch') {
-    // Watch mode: MCTS vs Random, with difficulty controlling MCTS think time
-    gameSession.setBots('mcts', 'random');
-    if (welcomeDifficulty === 'hard') {
-      gameSession.setMCTSThinkTime(welcomeMctsLevel);
-    } else {
-      // Easy: faster MCTS (100ms default)
-      gameSession.setMCTSThinkTime(100);
-    }
-  }
-}
-
-function startGameFromWelcome() {
-  gameRunning = true;
-  gameSession.running = true;
-  currentState = gameSession.state;
-  runGameLoop(gameSession, onStateUpdate, onGameOver);
-  updateGameStatus(gameSession.humanPlayer ? 'Your turn!' : 'Watching...');
-  updateSupply();
-  updateCurrentPlayer();
-  updateWatchControlsVisibility();
-}
-
-// ============ Canvas Rendering ============
-
-async function preloadImages() {
-  const imageFiles = [
-    'images/piece_owl.png',
-    'images/piece_squirrel.png',
-    'images/piece_koala.png',
-    'images/house_blue.png',
-    'images/house_red.png',
-    'images/game_logo.png'
-  ];
-  for (const src of imageFiles) {
-    try {
-      await loadImage(src);
-    } catch (e) {
-      console.warn(`Failed to preload image: ${src}`);
-    }
-  }
-}
-
-function getImagePath(piece) {
-  if (piece.pieceType === PieceType.REGULAR) {
-    return piece.player === Player.P1 ? 'images/piece_owl.png' : 'images/piece_squirrel.png';
-  } else if (piece.pieceType === PieceType.PUSHER) {
-    return piece.player === Player.P1 ? 'images/house_blue.png' : 'images/house_red.png';
-  } else if (piece.pieceType === PieceType.YELLOW) {
-    return 'images/piece_koala.png';
-  }
-  return 'images/piece_owl.png';
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    if (imageCache[src]) {
-      resolve(imageCache[src]);
-    } else {
-      const img = new Image();
-      img.onload = () => {
-        imageCache[src] = img;
-        resolve(img);
-      };
-      img.onerror = reject;
-      img.src = src;
-    }
-  });
-}
-
-function drawImagePreservingAspectRatio(ctx, img, centerX, centerY, maxWidth, maxHeight) {
-  const imgAspect = img.width / img.height;
-  const boxAspect = maxWidth / maxHeight;
-  let drawWidth, drawHeight;
-
-  if (imgAspect > boxAspect) {
-    drawWidth = maxWidth;
-    drawHeight = maxWidth / imgAspect;
+  if (sideBySide) {
+    // Trays sit beside the board, so only the window height limits it.
+    const asideWidth = $('trayTop').getBoundingClientRect().width;
+    available = window.innerHeight - top - 18;
+    width = col.clientWidth - asideWidth - colGap;
   } else {
-    drawHeight = maxHeight;
-    drawWidth = maxHeight * imgAspect;
+    // Anything above the board is already baked into the stage's page offset;
+    // only what sits below it still has to be reserved.
+    const children = [...col.children];
+    const below = children.slice(children.indexOf(stage) + 1)
+      .filter(el => el.offsetParent !== null);
+    available = window.innerHeight - top - 18 -
+      below.reduce((sum, el) => sum + el.getBoundingClientRect().height + rowGap, 0);
+    width = col.clientWidth;
   }
 
-  const x = centerX - drawWidth / 2;
-  const y = centerY - drawHeight / 2;
-  ctx.drawImage(img, x, y, drawWidth, drawHeight);
+  const size = Math.round(Math.max(200, Math.min(width, available, 720)));
+  if (Math.abs(size - (ui.boardSize || 0)) < 2) return;
+
+  ui.boardSize = size;
+  col.style.setProperty('--board-max', `${size}px`);
 }
 
-async function renderBoard() {
-  const canvas = document.getElementById('board');
-  const ctx = canvas.getContext('2d', { alpha: true });
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Draw grid
-  ctx.strokeStyle = '#444';
-  ctx.lineWidth = 1;
-  for (let r = 0; r <= BOARD_SIZE; r++) {
-    const y = r * CELL_SIZE;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(BOARD_SIZE * CELL_SIZE, y);
-    ctx.stroke();
-  }
-  for (let c = 0; c <= BOARD_SIZE; c++) {
-    const x = c * CELL_SIZE;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, BOARD_SIZE * CELL_SIZE);
-    ctx.stroke();
-  }
-
-  // Draw legal move highlights (when dragging or selecting)
-  const legalMovesForState = legalMoves(currentState);
-  const activeFilter = dragState || selectedPiece;
-  if (activeFilter && legalMovesForState.length > 0) {
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-    for (const move of legalMovesForState) {
-      if (move.pieceType === activeFilter.pieceType && move.action === activeFilter.action) {
-        const x = move.col * CELL_SIZE;
-        const y = move.row * CELL_SIZE;
-        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
-      }
-    }
-  }
-
-  // Draw pieces
-  const pieceMap = {};
-  currentState.board.forEach((piece, idx) => {
-    if (piece) {
-      const [r, c] = rc(idx);
-      pieceMap[`${r},${c}`] = piece;
-    }
-  });
-
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      const key = `${r},${c}`;
-      const piece = pieceMap[key];
-
-      if (piece) {
-        const cx = c * CELL_SIZE + CELL_SIZE / 2;
-        const cy = r * CELL_SIZE + CELL_SIZE / 2;
-
-        try {
-          const imagePath = getImagePath(piece);
-          const img = await loadImage(imagePath);
-          drawImagePreservingAspectRatio(ctx, img, cx, cy, PIECE_RADIUS * 2, PIECE_RADIUS * 2);
-        } catch (e) {
-          console.error('Failed to load image:', e);
-          // Fallback circles
-          const fallbackColor = piece.pieceType === 'yellow' ? '#ffdd00' : (piece.player === 'p1' ? '#4499ff' : '#ff6666');
-          ctx.fillStyle = fallbackColor;
-          ctx.beginPath();
-          ctx.arc(cx, cy, PIECE_RADIUS, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-      }
-    }
-  }
-}
-
-function updateSupplyZones() {
-  // Phase 2: Populate new supply zone containers with draggable pieces
-  const opponentZone = document.getElementById('opponentSupplyZone');
-  const playerZone = document.getElementById('playerSupplyZone');
-
-  if (!opponentZone || !playerZone) return;
-
-  const humanIsP1 = gameSession.humanPlayer === Player.P1;
-  const humanIsP2 = gameSession.humanPlayer === Player.P2;
-
-  function getPieceImage(player, pieceType) {
-    if (pieceType === PieceType.REGULAR) {
-      return player === Player.P1 ? 'images/piece_owl.png' : 'images/piece_squirrel.png';
-    } else if (pieceType === PieceType.PUSHER) {
-      return player === Player.P1 ? 'images/house_blue.png' : 'images/house_red.png';
-    } else if (pieceType === PieceType.YELLOW) {
-      return 'images/piece_koala.png';
-    }
-    return 'images/piece_owl.png';
-  }
-
-  function buildSupplyHTML(playerIdx, supply, isInteractive) {
-    const player = playerIdx === 0 ? Player.P1 : Player.P2;
-    const moves = isInteractive && gameRunning && currentState.current === player
-      ? legalMoves(currentState)
-      : [];
-
-    let html = '<div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">';
-
-    // Regular pieces
-    if (supply.regular > 0) {
-      const hasMove = moves.some(m => m.pieceType === PieceType.REGULAR && m.action === 'place');
-      const isSelected = selectedPiece && selectedPiece.pieceType === PieceType.REGULAR && selectedPiece.action === 'place';
-      let classes = isInteractive ? (hasMove ? 'draggable-piece' : 'draggable-piece disabled') : 'draggable-piece disabled';
-      if (isSelected) classes += ' selected';
-      html += `<div class="${classes}" data-piece="regular" data-action="place" style="display: flex; align-items: center; justify-content: center; padding: 0; position: relative;">
-        <img src="${getPieceImage(player, PieceType.REGULAR)}" alt="Regular piece" style="width: 100%; height: 100%; object-fit: contain; padding: 2px;">
-        <span style="position: absolute; bottom: 2px; right: 4px; font-size: 11px; color: var(--cream); font-weight: 700; background: rgba(0,0,0,0.5); border-radius: 2px; padding: 1px 3px;">${supply.regular}</span>
-      </div>`;
-    }
-
-    // House pieces
-    if (supply.pusher > 0) {
-      const hasMove = moves.some(m => m.pieceType === PieceType.PUSHER && m.action === 'eject');
-      const isSelected = selectedPiece && selectedPiece.pieceType === PieceType.PUSHER && selectedPiece.action === 'eject';
-      let classes = isInteractive ? (hasMove ? 'draggable-piece' : 'draggable-piece disabled') : 'draggable-piece disabled';
-      if (isSelected) classes += ' selected';
-      html += `<div class="${classes}" data-piece="pusher" data-action="eject" style="display: flex; align-items: center; justify-content: center; padding: 0; position: relative;">
-        <img src="${getPieceImage(player, PieceType.PUSHER)}" alt="House piece" style="width: 100%; height: 100%; object-fit: contain; padding: 2px;">
-        <span style="position: absolute; bottom: 2px; right: 4px; font-size: 11px; color: var(--cream); font-weight: 700; background: rgba(0,0,0,0.5); border-radius: 2px; padding: 1px 3px;">${supply.pusher}</span>
-      </div>`;
-    }
-
-    // Yellow/Koala pieces
-    if (supply.yellow > 0) {
-      const hasMove = moves.some(m => m.pieceType === PieceType.YELLOW && m.action === 'eject');
-      const isSelected = selectedPiece && selectedPiece.pieceType === PieceType.YELLOW && selectedPiece.action === 'eject';
-      let classes = isInteractive ? (hasMove ? 'draggable-piece' : 'draggable-piece disabled') : 'draggable-piece disabled';
-      if (isSelected) classes += ' selected';
-      html += `<div class="${classes}" data-piece="yellow" data-action="eject" style="display: flex; align-items: center; justify-content: center; padding: 0; position: relative;">
-        <img src="${getPieceImage(player, PieceType.YELLOW)}" alt="Koala piece" style="width: 100%; height: 100%; object-fit: contain; padding: 2px;">
-        <span style="position: absolute; bottom: 2px; right: 4px; font-size: 11px; color: var(--cream); font-weight: 700; background: rgba(0,0,0,0.5); border-radius: 2px; padding: 1px 3px;">${supply.yellow}</span>
-      </div>`;
-    }
-
-    html += '</div>';
-    return html;
-  }
-
-  if (humanIsP1 || humanIsP2) {
-    // vs-AI mode
-    const opponentIdx = humanIsP1 ? 1 : 0;
-    const playerIdx = humanIsP1 ? 0 : 1;
-    const opponentSupply = currentState.supply[opponentIdx];
-    const playerSupply = currentState.supply[playerIdx];
-
-    // Opponent zone (read-only)
-    opponentZone.innerHTML = `<span class="supply-zone-label">Opponent</span>` + buildSupplyHTML(opponentIdx, opponentSupply, false);
-    opponentZone.className = 'supply-zone supply-zone--opponent ' + (opponentIdx === 0 ? 'p1-accent' : 'p2-accent');
-
-    // Player zone (interactive)
-    playerZone.innerHTML = `<span class="supply-zone-label">Your pieces</span>` + buildSupplyHTML(playerIdx, playerSupply, true);
-    playerZone.className = 'supply-zone supply-zone--player ' + (playerIdx === 0 ? 'p1-accent' : 'p2-accent');
-    if (currentState.current === (playerIdx === 0 ? Player.P1 : Player.P2)) {
-      playerZone.classList.add('your-turn');
-    }
-  } else {
-    // Watch mode
-    const p1Supply = currentState.supply[0];
-    const p2Supply = currentState.supply[1];
-
-    opponentZone.innerHTML = `<span class="supply-zone-label">Player 1</span>` + buildSupplyHTML(0, p1Supply, false);
-    opponentZone.className = 'supply-zone supply-zone--opponent p1-accent';
-
-    playerZone.innerHTML = `<span class="supply-zone-label">Player 2</span>` + buildSupplyHTML(1, p2Supply, false);
-    playerZone.className = 'supply-zone supply-zone--player p2-accent';
-  }
-
-  // Attach drag and tap-to-select handlers to new draggable pieces
-  document.querySelectorAll('#opponentSupplyZone .draggable-piece:not(.disabled), #playerSupplyZone .draggable-piece:not(.disabled)').forEach(el => {
-    // Track touch state to distinguish between tap and drag
-    let isTouchDrag = false;
-
-    // Tap-to-select handler (click for desktop, after touch ends on mobile)
-    el.addEventListener('click', (e) => {
-      if (!gameRunning || !gameSession.waitingForHuman) return;
-
-      const pieceType = el.dataset.piece;
-      const action = el.dataset.action;
-
-      // Toggle selection: if clicking the same piece, deselect it
-      if (selectedPiece && selectedPiece.pieceType === pieceType && selectedPiece.action === action) {
-        selectedPiece = null;
-      } else {
-        selectedPiece = { pieceType, action };
-      }
-
-      renderBoard();
-      updateSupplyZones();
-    });
-
-    // Drag handlers
-    el.addEventListener('mousedown', (e) => {
-      // Clear selection when starting drag
-      selectedPiece = null;
-      startDrag(e);
-    });
-
-    el.addEventListener('touchstart', (e) => {
-      // Don't clear selection on touchstart; wait to see if it's a drag
-      isTouchDrag = false;
-    });
-
-    el.addEventListener('touchmove', (e) => {
-      // If finger moved, it's a drag, not a tap
-      isTouchDrag = true;
-      selectedPiece = null;
-      startDrag(e);
-    });
-
-    el.addEventListener('touchend', (e) => {
-      // If it wasn't a drag, let the click handler (tap) do its job
-      isTouchDrag = false;
-    });
-  });
-}
-
-function updateSupply() {
-  updateSupplyZones();
-}
-
-function updateCurrentPlayer() {
-  const isP1 = currentState.current === Player.P1;
-  const isHumanTurn = gameSession.waitingForHuman;
-  const playerName = isP1 ? 'Player 1' : 'Player 2';
-
-  // Update turn banner (Phase 2)
-  const banner = document.getElementById('turnBanner');
-  if (!banner) return; // Element not ready yet
-
-  banner.className = 'turn-banner ' + (isP1 ? 'p1' : 'p2') + (isHumanTurn ? ' your-turn' : '');
-  if (isHumanTurn) {
-    banner.textContent = 'Your turn — tap a piece, then tap the board';
-  } else if (isTerminal(currentState)) {
-    if (currentState.winner) {
-      const winnerName = currentState.winner === Player.P1 ? 'Player 1' : 'Player 2';
-      banner.textContent = `${winnerName} wins!`;
-    } else {
-      banner.textContent = 'Draw!';
-    }
-  } else {
-    banner.textContent = `${playerName}'s turn`;
-  }
-}
-
-function updateWatchControlsVisibility() {
-  // Phase 2: Toggle watch controls based on game mode
-  const isWatchMode = !gameSession.humanPlayer;
-  const watchControls = document.getElementById('watchControls');
-  const playControls = document.getElementById('playControls');
-
-  if (watchControls) {
-    watchControls.classList.toggle('hidden', !isWatchMode);
-  }
-  if (playControls) {
-    playControls.classList.toggle('hidden', isWatchMode);
-  }
-}
-
-function updateGameStatus(status) {
-  const elem = document.getElementById('gameStatus');
-  if (elem) elem.textContent = status;
-}
-
-// ============ Drag and Drop ============
-
-function startDrag(e) {
-  if (e.type === 'mousedown' && e.button !== 0) return;
-  if (!gameRunning) return;
-  e.preventDefault();
-  let el = e.target;
-  // If clicked on image, get parent draggable-piece div
-  if (el.tagName === 'IMG') {
-    el = el.closest('.draggable-piece');
-  }
-  dragState = {
-    pieceType: el.dataset.piece,
-    action: el.dataset.action
+function wireBoardFit() {
+  let raf = null;
+  const schedule = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => { raf = null; fitBoard(); });
   };
-  document.addEventListener('mousemove', onDragMove);
-  document.addEventListener('mouseup', onDragDrop);
-  document.addEventListener('touchmove', onDragMove, { passive: false });
-  document.addEventListener('touchend', onDragDrop);
-  // Use 'scroll' instead of 'hidden' to prevent scrollbar flicker
-  document.body.style.overflowY = 'scroll';
-  document.getElementById('board').classList.add('dragging');
-  renderBoard();
-}
-
-function onDragMove(e) {
-  if (dragState) {
-    if (e.type.startsWith('touch')) {
-      e.preventDefault();
-    }
-    renderBoard();
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', schedule);
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(schedule);
+    document.querySelectorAll('.tray, .status-strip, .btn-row, .game-topbar').forEach(el => ro.observe(el));
   }
+  // Fonts landing later can change the height of the furniture around the board.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
 }
 
-function onDragDrop(e) {
-  document.removeEventListener('mousemove', onDragMove);
-  document.removeEventListener('mouseup', onDragDrop);
-  document.removeEventListener('touchmove', onDragMove);
-  document.removeEventListener('touchend', onDragDrop);
-  document.body.style.overflowY = '';
+/* ==========================================================================
+   Setup screen
+   ========================================================================== */
 
-  document.getElementById('board').classList.remove('dragging');
+const MODE_HINT = {
+  'vs-ai': 'You take on the computer. Pick your side and how hard it should think.',
+  'watch': 'Two bots play each other — handy for watching how the game flows.'
+};
 
-  if (!dragState) return;
+const DIFFICULTY_HINT = {
+  easy: 'Quick, unpredictable moves. Good for learning the game.',
+  hard: 'Searches ahead before every move. It will punish loose lines.'
+};
 
-  const canvas = document.getElementById('board');
-  const rect = canvas.getBoundingClientRect();
+function wireSetupScreen() {
+  segmented('modeSegment', 'mode', value => {
+    ui.setup.mode = value;
+    $('modeHint').textContent = MODE_HINT[value];
+    $('sideField').classList.toggle('hidden', value !== 'vs-ai');
+    updateStrengthVisibility();
+  });
 
-  let x, y;
-  if (e.type.startsWith('touch')) {
-    const touch = e.changedTouches[0];
-    x = touch.clientX - rect.left;
-    y = touch.clientY - rect.top;
+  segmented('sideSegment', 'side', value => { ui.setup.side = value; });
+
+  segmented('difficultySegment', 'difficulty', value => {
+    ui.setup.difficulty = value;
+    $('difficultyHint').textContent = DIFFICULTY_HINT[value];
+    updateStrengthVisibility();
+  });
+
+  const slider = $('strengthSlider');
+  const paint = () => {
+    ui.setup.strength = parseInt(slider.value, 10);
+    $('strengthValue').textContent = ui.setup.strength;
+    slider.style.setProperty('--fill', `${((slider.value - slider.min) / (slider.max - slider.min)) * 100}%`);
+  };
+  slider.addEventListener('input', paint);
+  paint();
+
+  $('modeHint').textContent = MODE_HINT[ui.setup.mode];
+  $('difficultyHint').textContent = DIFFICULTY_HINT[ui.setup.difficulty];
+
+  $('btnStart').addEventListener('click', startGame);
+  $('btnWelcomeRules').addEventListener('click', () => openOverlay('rulesOverlay'));
+}
+
+function updateStrengthVisibility() {
+  const show = ui.setup.difficulty === 'hard';
+  $('strengthField').classList.toggle('hidden', !show);
+}
+
+/** Small helper for the segmented controls in the setup card. */
+function segmented(containerId, dataKey, onChange) {
+  const container = $(containerId);
+  if (!container) return;
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn || !container.contains(btn)) return;
+    [...container.querySelectorAll('button')].forEach(b => b.classList.toggle('is-active', b === btn));
+    onChange(btn.dataset[dataKey]);
+  });
+}
+
+function startGame() {
+  const { mode, side, difficulty, strength } = ui.setup;
+  const botType = difficulty === 'hard' ? 'mcts' : 'random';
+
+  // Think time has to be set before the bots are built.
+  session.setMCTSThinkTime(difficulty === 'hard' ? strength : 150);
+
+  if (mode === 'vs-ai') {
+    if (side === 'p1') session.setBots('human', botType);
+    else session.setBots(botType, 'human');
   } else {
-    x = e.clientX - rect.left;
-    y = e.clientY - rect.top;
+    session.setBots('mcts', 'random');
   }
 
-  // Scale coordinates to canvas internal size (account for CSS scaling on mobile)
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  x *= scaleX;
-  y *= scaleY;
-
-  const col = Math.floor(x / CELL_SIZE);
-  const row = Math.floor(y / CELL_SIZE);
-
-  console.log('Drop at row:', row, 'col:', col, 'dragState:', dragState);
-
-  if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
-    dragState = null;
-    renderBoard();
-    return;
-  }
-
-  // Check if move is legal
-  const moves = legalMoves(currentState);
-  console.log('Legal moves:', moves.filter(m => m.pieceType === dragState.pieceType && m.action === dragState.action));
-
-  const matchingMove = moves.find(m =>
-    m.pieceType === dragState.pieceType &&
-    m.action === dragState.action &&
-    m.row === row &&
-    m.col === col
-  );
-
-  console.log('Matching move:', matchingMove);
-
-  if (matchingMove) {
-    try {
-      console.log('Submitting move:', matchingMove);
-      gameSession.submitHumanMove(matchingMove);
-      console.log('Move submitted. pendingMove:', gameSession.pendingMove);
-      updateGameStatus('Move sent. Waiting for opponent...');
-    } catch (err) {
-      console.error('Error submitting move:', err);
-      updateGameStatus(`Error: ${err.message}`);
-    }
-  } else {
-    updateGameStatus('Invalid move target');
-  }
-
-  dragState = null;
-  renderBoard();
+  closeOverlay('welcomeOverlay');
+  beginRound();
 }
 
-// ============ Game Loop Callbacks ============
+/** Resets the board and starts the loop. */
+function beginRound() {
+  session.running = false;
+  session.reset();
+
+  ui.state = session.state;
+  ui.selection = null;
+  ui.cursor = null;
+  ui.log = [];
+  ui.started = true;
+  ui.paused = false;
+
+  ui.renderer.reset(session.state);
+  renderLog();
+
+  session.running = true;
+  runGameLoop(session, onStateUpdate, onGameOver);
+
+  refresh({ animate: false });
+}
+
+/* ==========================================================================
+   Game loop callbacks
+   ========================================================================== */
 
 function onStateUpdate(state) {
-  currentState = state;
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
+  if (state !== ui.state) {
+    appendLogEntry(ui.state, state);
+    ui.state = state;
+  }
+  refresh();
 }
 
 function onGameOver(state) {
-  currentState = state;
-  gameRunning = false;
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
+  ui.state = state;
+  ui.selection = null;
+  refresh();
+  window.setTimeout(() => showResult(state), 900);
+}
 
-  // Show game-over overlay (Phase 5)
-  const overlay = document.getElementById('gameOverOverlay');
-  const winnerDiv = document.getElementById('gameOverWinner');
+/* ==========================================================================
+   Rendering the surrounding UI
+   ========================================================================== */
 
-  if (state.winner) {
-    if (gameSession.humanPlayer) {
-      // vs-AI mode: show personalized message
-      const isHumanWinner = state.winner === gameSession.humanPlayer;
-      winnerDiv.textContent = isHumanWinner ? 'You Win! 🎉' : 'Opponent Wins';
-    } else {
-      // Watch mode: show player name
-      const winnerName = state.winner === Player.P1 ? 'Player 1' : 'Player 2';
-      winnerDiv.textContent = `${winnerName} Wins! 🎉`;
-    }
-  } else {
-    winnerDiv.textContent = 'Draw!';
+/**
+ * `rebuildTrays: false` keeps the existing chip elements alive (needed while a
+ * chip is being dragged — replacing it mid-gesture would kill pointer capture)
+ * and only restyles them.
+ */
+function refresh({ animate = true, rebuildTrays = true } = {}) {
+  ui.renderer.setState(ui.state, { animate });
+  ui.renderer.setHints(computeHints());
+  ui.renderer.setCursor(ui.cursor);
+  if (rebuildTrays) renderTrays(); else restyleChips();
+  renderStatus();
+  renderTurnCard();
+  renderControls();
+}
+
+/** Reflects the current selection on chips already in the DOM. */
+function restyleChips() {
+  document.querySelectorAll('.tray-chips .chip').forEach(chip => {
+    const selected = chip.dataset.piece === ui.selection && chip.classList.contains('is-playable');
+    chip.classList.toggle('is-selected', selected);
+    chip.setAttribute('aria-pressed', String(selected));
+  });
+}
+
+function isHumanTurn() {
+  return ui.started &&
+    session.humanPlayer !== null &&
+    ui.state.current === session.humanPlayer &&
+    !isTerminal(ui.state);
+}
+
+/** Legal targets for whatever the player currently has picked up. */
+function computeHints() {
+  if (!isHumanTurn() || !ui.selection) return [];
+  return legalMoves(ui.state)
+    .filter(m => m.pieceType === ui.selection)
+    .map(m => ({ row: m.row, col: m.col, kind: m.action === 'place' ? 'place' : 'eject' }));
+}
+
+function trayLayout() {
+  // vs computer: the human always sits at the bottom.
+  if (session.humanPlayer) {
+    return { top: otherPlayer(session.humanPlayer), bottom: session.humanPlayer };
   }
-
-  overlay.classList.remove('hidden');
+  return { top: Player.P1, bottom: Player.P2 };
 }
 
-// ============ Game Over Overlay Handler (Phase 5) ============
-
-const playAgainBtn2 = document.getElementById('playAgainBtn2');
-if (playAgainBtn2) {
-  playAgainBtn2.addEventListener('click', () => {
-    document.getElementById('gameOverOverlay').classList.add('hidden');
-    performReset();
-  });
+function renderTrays() {
+  const { top, bottom } = trayLayout();
+  paintTray($('trayTop'), top, false);
+  paintTray($('trayBottom'), bottom, session.humanPlayer === bottom);
 }
 
-const returnToMenuBtn = document.getElementById('returnToMenuBtn');
-if (returnToMenuBtn) {
-  returnToMenuBtn.addEventListener('click', () => {
-    document.getElementById('gameOverOverlay').classList.add('hidden');
-    gameRunning = false;
-    gameSession.running = false;
-    gameSession.reset();
-    currentState = gameSession.state;
-    dragState = null;
-    selectedPiece = null;
-    renderBoard();
-    updateSupply();
-    updateCurrentPlayer();
-    document.getElementById('welcomeOverlay').classList.remove('hidden');
-  });
-}
+function paintTray(tray, player, interactive) {
+  const active = ui.started && ui.state.current === player && !isTerminal(ui.state);
+  const isHuman = session.humanPlayer === player;
 
-// ============ Menu Modal Handler (Phase 4) ============
+  tray.className = `tray ${tray.id === 'trayTop' ? 'tray--opponent' : 'tray--player'} ` +
+    (player === Player.P1 ? 'p1' : 'p2') + (active ? ' is-active' : '');
 
-const menuBtn = document.getElementById('menuBtn');
-if (menuBtn) {
-  menuBtn.addEventListener('click', () => {
-    document.getElementById('menuModal').classList.remove('hidden');
-    // Sync the speed slider value
-    const menuSlider = document.getElementById('speedSliderMenu');
-    if (menuSlider) {
-      menuSlider.value = gameSession.speedMs;
+  tray.querySelector('.tray-avatar img').src = CHIP_ART[player].regular;
+
+  const name = isHuman ? 'You' : (session.humanPlayer ? 'Computer' : `Player ${player}`);
+  tray.querySelector('.tray-name').textContent = name;
+
+  const sub = tray.querySelector('.tray-state');
+  const supply = supplyOf(ui.state, player);
+  const left = supply.regular + supply.pusher + supply.yellow;
+  if (!ui.started) sub.textContent = `${PLAYER_NAME[player]}`;
+  else if (isTerminal(ui.state)) sub.textContent = `${PLAYER_NAME[player]} — ${left} left`;
+  else if (active) sub.textContent = isHuman ? 'your move' : 'thinking…';
+  else sub.textContent = `${PLAYER_NAME[player]} — ${left} left`;
+
+  const chips = tray.querySelector('.tray-chips');
+  const moves = interactive && isHumanTurn() ? legalMoves(ui.state) : [];
+
+  const wanted = [PieceType.REGULAR, PieceType.PUSHER, PieceType.YELLOW]
+    .map(type => ({
+      type,
+      count: type === PieceType.REGULAR ? supply.regular : type === PieceType.PUSHER ? supply.pusher : supply.yellow
+    }))
+    .filter(entry => entry.count > 0);
+
+  chips.innerHTML = '';
+  for (const { type, count } of wanted) {
+    const playable = interactive && moves.some(m => m.pieceType === type);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip ' +
+      (type === PieceType.YELLOW ? 'chip--koala' : player === Player.P1 ? 'chip--p1' : 'chip--p2') +
+      (type === PieceType.PUSHER ? ' chip--pusher' : '') +
+      (interactive ? (playable ? ' is-playable' : ' is-disabled') : ' is-readonly') +
+      (ui.selection === type && playable ? ' is-selected' : '');
+    chip.dataset.piece = type;
+    chip.disabled = !playable;
+    chip.setAttribute('aria-pressed', String(ui.selection === type));
+    chip.setAttribute('aria-label', `${count} ${PIECE_LABEL[type]}${count === 1 ? '' : 's'}`);
+    chip.innerHTML =
+      `<img src="${CHIP_ART[player][type]}" alt="" draggable="false">` +
+      `<span class="chip-count">${count}</span>`;
+
+    if (playable) {
+      chip.addEventListener('pointerdown', onChipPointerDown);
+      chip.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSelection(type); }
+      });
     }
-  });
-}
-
-const menuModalClose = document.getElementById('menuModalClose');
-if (menuModalClose) {
-  menuModalClose.addEventListener('click', () => {
-    document.getElementById('menuModal').classList.add('hidden');
-  });
-}
-
-const btnNewGame = document.getElementById('btnNewGame');
-if (btnNewGame) {
-  btnNewGame.addEventListener('click', () => {
-    // Stop game, reset, and show welcome overlay
-    gameRunning = false;
-    gameSession.running = false;
-    document.getElementById('menuModal').classList.add('hidden');
-    gameSession.reset();
-    currentState = gameSession.state;
-    dragState = null;
-    selectedPiece = null;
-    renderBoard();
-    updateSupply();
-    updateCurrentPlayer();
-    document.getElementById('welcomeOverlay').classList.remove('hidden');
-  });
-}
-
-// Speed slider in menu (Phase 4)
-const speedSliderMenu = document.getElementById('speedSliderMenu');
-if (speedSliderMenu) {
-  speedSliderMenu.addEventListener('input', (e) => {
-    gameSession.speedMs = parseInt(e.target.value);
-  });
-}
-
-// ============ Canvas Click Handler (Tap-to-Place) ============
-
-const boardCanvas = document.getElementById('board');
-if (boardCanvas) {
-  boardCanvas.addEventListener('click', (e) => {
-    if (!selectedPiece || !gameRunning || !gameSession.waitingForHuman) return;
-
-    const canvas = document.getElementById('board');
-    const rect = canvas.getBoundingClientRect();
-
-    // Calculate coordinates relative to canvas
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Scale coordinates to canvas internal size (account for CSS scaling on mobile)
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const scaledX = x * scaleX;
-    const scaledY = y * scaleY;
-
-    const col = Math.floor(scaledX / CELL_SIZE);
-    const row = Math.floor(scaledY / CELL_SIZE);
-
-    if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
-      // Click outside board - clear selection
-      selectedPiece = null;
-      renderBoard();
-      updateSupplyZones();
-      return;
-    }
-
-    // Find matching move
-    const moves = legalMoves(currentState);
-    const matchingMove = moves.find(m =>
-      m.pieceType === selectedPiece.pieceType &&
-      m.action === selectedPiece.action &&
-      m.row === row &&
-      m.col === col
-    );
-
-    if (matchingMove) {
-      try {
-        gameSession.submitHumanMove(matchingMove);
-        updateGameStatus('Move sent. Waiting for opponent...');
-        selectedPiece = null;
-      } catch (err) {
-        console.error('Error submitting move:', err);
-        updateGameStatus(`Error: ${err.message}`);
-      }
-    } else {
-      // Tap on non-legal cell - clear selection
-      selectedPiece = null;
-    }
-
-    renderBoard();
-    updateSupplyZones();
-  });
-}
-
-// ============ Reset Button Handler ============
-
-function performReset() {
-  gameRunning = false;
-  gameSession.reset();
-  currentState = gameSession.state;
-  dragState = null;
-  selectedPiece = null;
-  updateGameStatus('Game reset');
-  renderBoard();
-  updateSupply();
-  updateCurrentPlayer();
-
-  // Auto-restart the game loop if there's a human player
-  if (gameSession.humanPlayer) {
-    gameRunning = true;
-    gameSession.running = true;
-    currentState = gameSession.state;
-    runGameLoop(gameSession, onStateUpdate, onGameOver);
-    updateGameStatus('Your turn!');
-    updateWatchControlsVisibility();
+    chips.appendChild(chip);
   }
 }
 
-// Wire new Reset button (Phase 2)
-const btnReset2 = document.getElementById('btnReset2');
-if (btnReset2) {
-  btnReset2.addEventListener('click', performReset);
-}
+function renderStatus() {
+  const strip = $('statusStrip');
+  strip.classList.remove('is-hint');
 
-// ============ Analysis ============
-
-function updateAnalysisProgress(completed, total) {
-  const progressBar = document.getElementById('progressBarFill');
-  const gameStatus = document.getElementById('currentGameStatus');
-  const percent = Math.round((completed / total) * 100);
-
-  console.log(`[Analysis] Progress: ${completed}/${total} (${percent}%)`);
-  gameStatus.textContent = `Running Game ${completed} of ${total}...`;
-  progressBar.style.width = percent + '%';
-  progressBar.textContent = percent > 10 ? percent + '%' : '';
-}
-
-function displayAnalysisResults(stats) {
-  const statsGrid = document.getElementById('statsGrid');
-  const analyseProgress = document.getElementById('analyseProgress');
-  const runBtn = document.getElementById('btnRunAnalysis');
-
-  if (!stats) {
-    console.error('[Analysis] Error - stats is null');
-    updateGameStatus('Analysis error');
-    runBtn.disabled = false;
-    runBtn.textContent = 'Run Analysis';
-    isAnalysing = false;
+  if (!ui.started) {
+    strip.textContent = 'Choose how you want to play';
     return;
   }
 
-  console.log('[Analysis] Complete. Stats:', stats);
-  analyseProgress.classList.remove('visible');
-  isAnalysing = false;
-  runBtn.disabled = false;
-  runBtn.textContent = 'Run Analysis';
+  if (isTerminal(ui.state)) {
+    strip.textContent = resultHeadline(ui.state);
+    return;
+  }
 
-  let html = `
-    <div class="stat-item">
-        <div class="stat-label">Player 1 Win Rate</div>
-        <div class="stat-value">${stats.p1WinPct.toFixed(1)}%</div>
-    </div>
-    <div class="stat-item p2-stat">
-        <div class="stat-label">Player 2 Win Rate</div>
-        <div class="stat-value">${stats.p2WinPct.toFixed(1)}%</div>
-    </div>
-  `;
+  if (isHumanTurn()) {
+    strip.classList.add('is-hint');
+    if (!ui.selection) {
+      strip.textContent = 'Your turn — pick a piece below, then tap a glowing space';
+    } else if (ui.selection === PieceType.REGULAR) {
+      strip.textContent = 'Tap a glowing space to place your piece';
+    } else {
+      strip.textContent = `Tap a marked opponent piece to eject it with your ${PIECE_LABEL[ui.selection]}`;
+    }
+    return;
+  }
 
-  if (stats.botTypeStats) {
-    for (const [botType, winPct] of Object.entries(stats.botTypeStats)) {
-      const displayName = botType.charAt(0).toUpperCase() + botType.slice(1);
-      html += `
-        <div class="stat-item">
-            <div class="stat-label">${displayName} Win Rate</div>
-            <div class="stat-value">${winPct.toFixed(1)}%</div>
-        </div>
-      `;
+  if (ui.paused) {
+    strip.textContent = 'Paused';
+    return;
+  }
+
+  const who = session.humanPlayer ? 'The computer' : PLAYER_NAME[ui.state.current];
+  strip.innerHTML = `${who} is thinking <span class="thinking-dots"><span></span><span></span><span></span></span>`;
+}
+
+function renderTurnCard() {
+  const dot = $('turnDot');
+  const text = $('turnText');
+  const isP1 = ui.state.current === Player.P1;
+
+  dot.className = 'turn-dot ' + (ui.started && !isTerminal(ui.state) ? (isP1 ? 'p1' : 'p2') : '');
+
+  if (!ui.started) {
+    text.innerHTML = 'Not started<br><span class="turn-sub">Press start to play</span>';
+    return;
+  }
+  if (isTerminal(ui.state)) {
+    text.innerHTML = `${resultHeadline(ui.state)}<br><span class="turn-sub">Turn ${ui.state.turnNumber - 1}</span>`;
+    return;
+  }
+  const who = isHumanTurn() ? 'Your turn' : `${PLAYER_NAME[ui.state.current]} to move`;
+  text.innerHTML = `${who}<br><span class="turn-sub">Turn ${ui.state.turnNumber}</span>`;
+}
+
+function renderControls() {
+  const watching = ui.started && !session.humanPlayer && !isTerminal(ui.state);
+  for (const id of ['btnPauseResume', 'btnMenuPause']) {
+    const btn = $(id);
+    btn.classList.toggle('hidden', !watching);
+    btn.textContent = ui.paused ? 'Resume' : 'Pause';
+  }
+
+  $('topbarSub').textContent = !ui.started
+    ? 'Play online'
+    : session.humanPlayer
+      ? `You are the ${PLAYER_NAME[session.humanPlayer].toLowerCase()}`
+      : 'Bot vs bot';
+}
+
+/* ==========================================================================
+   Move history
+   ========================================================================== */
+
+function appendLogEntry(before, after) {
+  if (!before || before.board === after.board) return;
+
+  let placed = null, removed = null;
+  for (let i = 0; i < after.board.length; i++) {
+    if (before.board[i] === after.board[i]) continue;
+    const row = Math.floor(i / 6), col = i % 6;
+    if (after.board[i]) placed = { piece: after.board[i], row, col };
+    if (before.board[i]) removed = { piece: before.board[i], row, col };
+  }
+  if (!placed) return;
+
+  const mover = placed.piece.player;
+  const at = cellName(placed.row, placed.col);
+  let text;
+  if (removed) {
+    const victim = removed.piece.pieceType === PieceType.YELLOW ? 'koala'
+      : removed.piece.pieceType === PieceType.PUSHER ? 'door'
+      : PLAYER_SOLO[removed.piece.player];
+    const tool = placed.piece.pieceType === PieceType.YELLOW ? 'Koala' : 'Door';
+    text = `${tool} ejected a ${victim}`;
+  } else {
+    const what = placed.piece.pieceType === PieceType.YELLOW ? 'koala'
+      : placed.piece.pieceType === PieceType.PUSHER ? 'door'
+      : PLAYER_SOLO[mover];
+    text = `Placed ${'aeiou'.includes(what[0]) ? 'an' : 'a'} ${what}`;
+  }
+
+  ui.log.unshift({ turn: before.turnNumber, player: mover, text, at });
+  if (ui.log.length > 60) ui.log.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const list = $('moveLog');
+  if (!list) return;
+  if (!ui.log.length) {
+    list.innerHTML = '<li class="move-log-empty">No moves yet.</li>';
+    return;
+  }
+  list.innerHTML = ui.log.map(entry =>
+    `<li class="${entry.player === Player.P1 ? 'p1' : 'p2'}">` +
+    `<span class="log-turn">${entry.turn}</span>` +
+    `<span>${entry.text}</span>` +
+    `<span class="log-cell" style="margin-left:auto">${entry.at}</span>` +
+    `</li>`).join('');
+}
+
+/* ==========================================================================
+   Picking pieces up: tap to select, or drag onto the board
+   ========================================================================== */
+
+function toggleSelection(pieceType) {
+  ui.selection = ui.selection === pieceType ? null : pieceType;
+  refresh({ animate: false, rebuildTrays: false });
+}
+
+function onChipPointerDown(e) {
+  if (!isHumanTurn()) return;
+  const chip = e.currentTarget;
+  const pieceType = chip.dataset.piece;
+  e.preventDefault();
+
+  ui.drag = {
+    pieceType,
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    moved: false,
+    ghost: null,
+    chip,
+    wasSelected: ui.selection === pieceType
+  };
+
+  if (ui.selection !== pieceType) {
+    ui.selection = pieceType;
+    refresh({ animate: false, rebuildTrays: false });
+  }
+
+  try { chip.setPointerCapture(e.pointerId); } catch (_) { /* older browsers */ }
+  chip.addEventListener('pointermove', onChipPointerMove);
+  chip.addEventListener('pointerup', onChipPointerUp);
+  chip.addEventListener('pointercancel', onChipPointerUp);
+}
+
+function onChipPointerMove(e) {
+  const drag = ui.drag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+
+  const dist = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
+  if (!drag.moved && dist > 8) {
+    drag.moved = true;
+    drag.ghost = document.createElement('div');
+    drag.ghost.className = 'drag-ghost';
+    drag.ghost.innerHTML = `<img src="${drag.chip.querySelector('img').src}" alt="">`;
+    document.body.appendChild(drag.ghost);
+    $('board').classList.add('is-dragging');
+  }
+
+  if (drag.moved) {
+    drag.ghost.style.left = `${e.clientX}px`;
+    drag.ghost.style.top = `${e.clientY}px`;
+    const cell = ui.renderer.cellFromPoint(e.clientX, e.clientY);
+    ui.renderer.setHover(cell && ui.renderer.hintAt(cell.row, cell.col) ? cell : null);
+  }
+}
+
+function onChipPointerUp(e) {
+  const drag = ui.drag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+
+  drag.chip.removeEventListener('pointermove', onChipPointerMove);
+  drag.chip.removeEventListener('pointerup', onChipPointerUp);
+  drag.chip.removeEventListener('pointercancel', onChipPointerUp);
+  if (drag.ghost) drag.ghost.remove();
+  $('board').classList.remove('is-dragging');
+  ui.renderer.setHover(null);
+  ui.drag = null;
+
+  if (!drag.moved) {
+    // A tap: leave the piece selected, or deselect if it already was.
+    if (e.type !== 'pointercancel' && drag.wasSelected) ui.selection = null;
+    refresh({ animate: false, rebuildTrays: false });
+    return;
+  }
+
+  const cell = ui.renderer.cellFromPoint(e.clientX, e.clientY);
+  if (cell) playAt(cell.row, cell.col, drag.pieceType);
+  else refresh({ animate: false, rebuildTrays: false });
+}
+
+/* ==========================================================================
+   Board interaction
+   ========================================================================== */
+
+function wireBoard() {
+  const canvas = $('board');
+
+  canvas.addEventListener('pointermove', e => {
+    if (!isHumanTurn()) { ui.renderer.setHover(null); canvas.classList.remove('is-interactive'); return; }
+    const cell = ui.renderer.cellFromPoint(e.clientX, e.clientY);
+    const hint = cell && ui.renderer.hintAt(cell.row, cell.col);
+    ui.renderer.setHover(hint ? cell : null);
+    canvas.classList.toggle('is-interactive', Boolean(hint) || Boolean(cell && canQuickPlace(cell)));
+  });
+
+  canvas.addEventListener('pointerleave', () => ui.renderer.setHover(null));
+
+  canvas.addEventListener('click', e => {
+    if (!isHumanTurn()) return;
+    const cell = ui.renderer.cellFromPoint(e.clientX, e.clientY);
+    if (!cell) { ui.selection = null; refresh({ animate: false }); return; }
+    playAt(cell.row, cell.col, ui.selection);
+  });
+
+  canvas.addEventListener('keydown', e => {
+    if (!isHumanTurn()) return;
+    const step = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    if (step) {
+      e.preventDefault();
+      const cur = ui.cursor || { row: 2, col: 2 };
+      ui.cursor = {
+        row: Math.min(5, Math.max(0, cur.row + step[0])),
+        col: Math.min(5, Math.max(0, cur.col + step[1]))
+      };
+      ui.renderer.setCursor(ui.cursor);
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (ui.cursor) playAt(ui.cursor.row, ui.cursor.col, ui.selection);
+      return;
+    }
+    const pick = { '1': PieceType.REGULAR, '2': PieceType.PUSHER, '3': PieceType.YELLOW }[e.key];
+    if (pick) {
+      const moves = legalMoves(ui.state);
+      if (moves.some(m => m.pieceType === pick)) toggleSelection(pick);
+    }
+    if (e.key === 'Escape' && ui.selection) toggleSelection(ui.selection);
+  });
+
+  // The keyboard cursor only appears once someone actually uses the arrows.
+  canvas.addEventListener('blur', () => { ui.cursor = null; ui.renderer.setCursor(null); });
+  canvas.addEventListener('pointerdown', () => { ui.cursor = null; ui.renderer.setCursor(null); });
+}
+
+/** True when tapping an empty legal square should simply drop a regular piece. */
+function canQuickPlace(cell) {
+  if (!isHumanTurn() || ui.selection) return false;
+  return legalMoves(ui.state).some(m =>
+    m.pieceType === PieceType.REGULAR && m.row === cell.row && m.col === cell.col);
+}
+
+function playAt(row, col, pieceType) {
+  if (!isHumanTurn()) return;
+
+  let type = pieceType;
+  if (!type) {
+    // Nothing picked up: a tap on an empty legal square places a regular piece.
+    if (canQuickPlace({ row, col })) type = PieceType.REGULAR;
+    else {
+      const strip = $('statusStrip');
+      strip.classList.add('is-hint');
+      strip.textContent = ui.state.board[row * 6 + col]
+        ? 'Pick a door or koala first, then tap the piece you want to eject'
+        : 'Pieces must touch a piece already on the board';
+      return;
     }
   }
 
-  html += `
-    <div class="stat-item">
-        <div class="stat-label">4-in-a-Row Wins</div>
-        <div class="stat-value">${stats.fourInARowPct.toFixed(1)}%</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-label">Both Koalas Used</div>
-        <div class="stat-value">${stats.bothKoalasUsedPct.toFixed(1)}%</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-label">Average Turns</div>
-        <div class="stat-value">${stats.avgTurns.toFixed(1)}</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-label">Median Turns</div>
-        <div class="stat-value">${stats.medianTurns}</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-label">Fewest Turns</div>
-        <div class="stat-value">${stats.minTurns}</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-label">Most Turns</div>
-        <div class="stat-value">${stats.maxTurns}</div>
-    </div>
-  `;
+  const move = legalMoves(ui.state).find(m =>
+    m.pieceType === type && m.row === row && m.col === col);
 
-  statsGrid.innerHTML = html;
-  statsGrid.classList.add('visible');
+  if (!move) {
+    ui.selection = null;
+    refresh({ animate: false });
+    return;
+  }
+
+  try {
+    session.submitHumanMove(move);
+    ui.selection = null;
+    ui.renderer.setHover(null);
+    refresh({ animate: false });
+  } catch (err) {
+    console.error('[Acacia] move rejected:', err);
+  }
 }
 
-const btnRunAnalysis = document.getElementById('btnRunAnalysis');
-if (btnRunAnalysis) {
-  btnRunAnalysis.addEventListener('click', () => {
-    const runBtn = document.getElementById('btnRunAnalysis');
+/* ==========================================================================
+   Controls, menu, rules, result
+   ========================================================================== */
 
-    if (isAnalysing) {
-      return;
-    }
-
-    // Disable button immediately
-    isAnalysing = true;
-    runBtn.disabled = true;
-    runBtn.textContent = 'Running...';
-
-    const iterations = parseInt(document.getElementById('iterationsInput').value) || 20;
-    // Analysis always uses MCTS vs Random for testing
-    const bot1 = 'mcts';
-    const bot2 = 'random';
-
-    const analyseProgress = document.getElementById('analyseProgress');
-    const statsGrid = document.getElementById('statsGrid');
-
-    if (analyseProgress) analyseProgress.classList.add('visible');
-    if (statsGrid) statsGrid.classList.remove('visible');
-
-    // Initialize progress display
-    const gameStatus = document.getElementById('currentGameStatus');
-    const progressBar = document.getElementById('progressBarFill');
-
-    if (gameStatus) gameStatus.textContent = `Starting Game 1 of ${iterations}...`;
-    if (progressBar) progressBar.style.width = '0%';
-
-    console.log('[Analysis] Starting with iterations:', iterations, 'bots:', bot1, 'vs', bot2, 'MCTS level:', welcomeMctsLevel);
-    runAnalysis(iterations, bot1, bot2, welcomeMctsLevel, updateAnalysisProgress, displayAnalysisResults);
+function wireControls() {
+  $('btnRestart').addEventListener('click', () => {
+    if (!ui.started) { openOverlay('welcomeOverlay'); return; }
+    beginRound();
   });
+
+  $('btnChangeSetup').addEventListener('click', backToSetup);
+
+  const togglePause = () => {
+    if (isTerminal(ui.state) || !ui.started) return;
+    ui.paused = !ui.paused;
+    if (ui.paused) {
+      session.running = false;
+    } else {
+      session.running = true;
+      runGameLoop(session, onStateUpdate, onGameOver);
+    }
+    refresh({ animate: false });
+  };
+
+  $('btnPauseResume').addEventListener('click', togglePause);
+  $('btnMenuPause').addEventListener('click', togglePause);
+
+  $('btnPlayAgain').addEventListener('click', () => {
+    closeOverlay('gameOverOverlay');
+    beginRound();
+  });
+
+  $('btnBackToSetup').addEventListener('click', () => {
+    closeOverlay('gameOverOverlay');
+    backToSetup();
+  });
+}
+
+function backToSetup() {
+  session.running = false;
+  ui.started = false;
+  ui.paused = false;
+  ui.selection = null;
+  session.reset();
+  ui.state = session.state;
+  ui.log = [];
+  ui.renderer.reset(session.state);
+  renderLog();
+  refresh({ animate: false });
+  openOverlay('welcomeOverlay');
+}
+
+function wireMenu() {
+  $('btnMenu').addEventListener('click', () => openOverlay('menuOverlay'));
+  $('menuClose').addEventListener('click', () => closeOverlay('menuOverlay'));
+  $('btnMenuNewGame').addEventListener('click', () => { closeOverlay('menuOverlay'); backToSetup(); });
+  $('btnMenuRestart').addEventListener('click', () => {
+    closeOverlay('menuOverlay');
+    if (ui.started) beginRound(); else openOverlay('welcomeOverlay');
+  });
+  $('btnMenuRules').addEventListener('click', () => { closeOverlay('menuOverlay'); openOverlay('rulesOverlay'); });
+
+  const speed = $('speedSlider');
+  const paint = () => {
+    session.speedMs = parseInt(speed.value, 10);
+    $('speedValue').textContent = session.speedMs;
+    speed.style.setProperty('--fill', `${((speed.value - speed.min) / (speed.max - speed.min)) * 100}%`);
+  };
+  speed.addEventListener('input', paint);
+  paint();
+}
+
+function wireRules() {
+  $('btnRules').addEventListener('click', () => openOverlay('rulesOverlay'));
+  $('rulesClose').addEventListener('click', () => closeOverlay('rulesOverlay'));
+
+  // Click the backdrop or press Escape to dismiss any dismissible overlay.
+  for (const id of ['rulesOverlay', 'menuOverlay']) {
+    $(id).addEventListener('click', e => { if (e.target === $(id)) closeOverlay(id); });
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    for (const id of ['rulesOverlay', 'menuOverlay']) {
+      if (!$(id).classList.contains('hidden')) { closeOverlay(id); return; }
+    }
+  });
+}
+
+function openOverlay(id) { $(id).classList.remove('hidden'); }
+function closeOverlay(id) { $(id).classList.add('hidden'); }
+
+function resultHeadline(state) {
+  if (!state.winner) return 'Draw';
+  if (session.humanPlayer) return state.winner === session.humanPlayer ? 'You win!' : 'The computer wins';
+  return `${PLAYER_NAME[state.winner]} win`;
+}
+
+function showResult(state) {
+  const winner = state.winner;
+  $('resultTitle').textContent = resultHeadline(state);
+
+  let reason = 'No legal moves remain.';
+  if (winner) {
+    const line = findWinningLine(state.board, winner);
+    reason = line
+      ? `Four in a row — ${line.map(([r, c]) => cellName(r, c)).join(' · ')}`
+      : 'Every piece placed on the board.';
+  }
+  $('resultSub').textContent = `${reason} · ${state.turnNumber - 1} turns played`;
+
+  const avatar = $('resultAvatar').querySelector('img');
+  avatar.src = CHIP_ART[winner || Player.P1].regular;
+
+  openOverlay('gameOverOverlay');
+}
+
+/* ==========================================================================
+   Balance lab (web worker)
+   ========================================================================== */
+
+function wireAnalysis() {
+  $('btnRunAnalysis').addEventListener('click', () => {
+    if (ui.analysing) return;
+    const btn = $('btnRunAnalysis');
+    const iterations = Math.max(1, Math.min(10000, parseInt($('iterationsInput').value, 10) || 20));
+
+    ui.analysing = true;
+    btn.disabled = true;
+    btn.textContent = 'Running…';
+    $('analysisProgress').classList.remove('hidden');
+    $('statsGrid').classList.add('hidden');
+    $('progressBarFill').style.width = '0%';
+    $('progressLabel').textContent = `Starting game 1 of ${iterations}…`;
+
+    runAnalysis(iterations, 'mcts', 'random', ui.setup.strength, onAnalysisProgress, onAnalysisComplete);
+  });
+}
+
+function onAnalysisProgress(completed, total) {
+  $('progressBarFill').style.width = `${Math.round((completed / total) * 100)}%`;
+  $('progressLabel').textContent = `Game ${completed} of ${total}`;
+}
+
+function onAnalysisComplete(stats) {
+  const btn = $('btnRunAnalysis');
+  ui.analysing = false;
+  btn.disabled = false;
+  btn.textContent = 'Run';
+  $('analysisProgress').classList.add('hidden');
+
+  if (!stats) {
+    $('progressLabel').textContent = 'Analysis failed — a local web server is needed for workers.';
+    $('analysisProgress').classList.remove('hidden');
+    return;
+  }
+
+  const cells = [
+    ['Owls win', `${stats.p1WinPct.toFixed(1)}%`],
+    ['Squirrels win', `${stats.p2WinPct.toFixed(1)}%`],
+    ['Four in a row', `${stats.fourInARowPct.toFixed(1)}%`],
+    ['Both koalas used', `${stats.bothKoalasUsedPct.toFixed(1)}%`],
+    ['Average turns', stats.avgTurns.toFixed(1)],
+    ['Median turns', String(stats.medianTurns)],
+    ['Shortest', String(stats.minTurns)],
+    ['Longest', String(stats.maxTurns)]
+  ];
+
+  if (stats.botTypeStats) {
+    for (const [botType, winPct] of Object.entries(stats.botTypeStats)) {
+      cells.push([`${botType} bot`, `${winPct.toFixed(1)}%`]);
+    }
+  }
+
+  $('statsGrid').innerHTML = cells.map(([label, value]) =>
+    `<div class="stat-item"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>`).join('');
+  $('statsGrid').classList.remove('hidden');
 }

@@ -10,6 +10,11 @@ A Python engine for the 2-player abstract strategy game "Acacia" designed by Dea
 ## Repository
 https://github.com/wombatgamefactory/acacia-game
 
+**Published at** https://wombatgamefactory.github.io/acacia-game/ (GitHub Pages).
+The studio site (wombatgamefactory.github.io repo) only *links* here — it holds
+no copy of the game, and this repo loads nothing from it. Same arrangement as
+bucket-list-game, fancy-that-game and firefly-festival-game.
+
 ## The game — Acacia
 **Goal**: Be first to form a continuous line of 4 pieces of your colour (vertical, 
 horizontal or diagonal), OR be first to place all your pieces on the board.
@@ -60,19 +65,53 @@ acacia-game/
 │   │   ├── game.js        # Core logic: board, moves, win conditions
 │   │   └── bots.js        # RandomBot, MCTSBot
 │   ├── session.js         # Game session state management
-│   ├── gameloop.js        # Play/pause/step, human move handling
+│   ├── gameloop.js        # Play/pause/step, human move handling (ticketed loop)
+│   ├── board-renderer.js  # Canvas board: layout, baked layers, tokens, animation
 │   ├── analysis.js        # Analysis mode wrapper (spawns Web Worker)
 │   ├── analysis-worker.js # Web Worker: batch simulations
 │   └── utils.js           # Helpers: serialization, median, etc.
+├── css/
+│   └── acacia-game.css    # Whole game UI (self-contained design system)
 ├── images/
-│   ├── game_logo.png
-│   ├── piece_owl.png, piece_squirrel.png, piece_koala.png
-│   └── house_blue.png, house_red.png
-├── index.html             # Main page (Canvas + controls)
-├── app.js                 # UI glue: event handlers, rendering
+│   ├── pieces/            # Web sprites actually used by the game (transparent,
+│   │                      #   trimmed, ~30-60 KB each)
+│   │   ├── owl.png, squirrel.png, koala.png
+│   │   └── house_blue_icon.png, house_red_icon.png
+│   ├── hero.jpg           # Welcome-card banner (from the box art)
+│   ├── backdrop.jpg       # Blurred page backdrop
+│   └── piece_*.png, house_*.png, game_box_art.png   # original source art
+├── index.html             # The game page (canvas, trays, overlays)
+├── acacia-game.html       # Redirect stub → ./ (keeps the old published URL alive)
+├── app.js                 # UI layer: trays, status, history, screens, input
+├── version.js             # APP_VERSION — bump with each commit
 ├── CLAUDE.md
 ├── CONVERT_ACACIA_TO_JS.md  # Conversion specification document
 └── README.md
+
+## Presentation notes (2026-07-25 redesign)
+- **Sprites**: the game loads `images/pieces/*.png` — owl, squirrel, koala,
+  door_blue, door_red. These are derived from the full-size Gemini art in
+  `S:\Dropbox\dev\Cardboard\Acacia\AI Art\*_token.png`: white background
+  flood-filled to alpha, edge eroded and feathered, trimmed, squared, resized to
+  512 px and quantised (~40–50 KB each). Rebuild with Pillow when the art
+  changes. Two rules the art has to follow or the pipeline/tokens break:
+  the subject must be **isolated on white with a clear margin** (the flood fill
+  seeds from the corners), and characters must be **head-and-shoulders busts** —
+  full-body figures shrink to a third of the token and stop reading.
+  The older `images/piece_*.png` and `house_*.png` files are the superseded
+  first-generation art, kept only as source.
+- **Canvas**: `BoardRenderer` sizes the canvas to `clientWidth × devicePixelRatio`
+  (the old renderer drew at a fixed 540 px and let the browser stretch it — the
+  cause of the blurriness). The frame, cells and coordinates are baked into an
+  offscreen layer; each token is baked once per size; a frame is only drawn while
+  something is actually animating.
+- **Board fit**: `fitBoard()` in app.js measures the space the site header, trays
+  and status line leave behind and sets `--board-max`. CSS cannot do this on its
+  own because the page is embedded in the wombatgamefactory.com shell. Short,
+  wide viewports switch to a side-by-side layout (board left, trays right).
+- **Theme**: `css/acacia-game.css` defines every value the page needs — palette,
+  reset, fonts and the slim site header/footer. Nothing is loaded from the
+  website repo at runtime.
 
 ## Key design principles
 - Pure functional game engine (js/engine/game.js) with frozen immutable objects
@@ -112,10 +151,26 @@ python -m http.server 8000
 Wombat Game Factory — acacia@wombatgamefactory.com
 www.wombatgamefactory.com
 
-## Conversion History
+## Change History
 - **2026-05-14**: Converted from Python FastAPI + WebSocket to pure JavaScript
   - All game logic (js/engine/) working
   - Both RandomBot and MCTSBot ported
   - Web Worker for analysis mode
   - Human player mode with drag-and-drop interface
   - Now runs 100% in browser, deployable to GitHub Pages
+- **2026-07-25**: Full presentation redesign (game logic untouched)
+  - New sprite pipeline: transparent, trimmed, ~40× smaller piece art
+  - New `js/board-renderer.js`: DPI-correct canvas, physical-looking board,
+    piece drop / eject / win-line animations, legal-move and last-move hints
+  - New `css/acacia-game.css` and page shell: responsive layout that keeps the
+    whole game on screen from a 390 px phone to a large desktop
+  - Setup screen (mode, side, difficulty), move history, in-game menu,
+    balance lab, tap-to-place, drag-and-drop, and keyboard play
+  - `gameloop.js` now takes a ticket per loop so restarting mid-game cannot
+    leave two loops driving the same session
+- **2026-07-25**: New piece art (storybook emblem style, generated with
+  /generate-art). Owl, squirrel and koala are head-and-shoulders busts; the
+  pushing piece is now a **round door in the player's colour** rather than a
+  tree-house — the tree read as confusing next to an acacia-themed board. The
+  in-game wording follows the art: the pushing piece is called a **Door** in the
+  UI, while the printed rules still say "pushing piece / house symbol".
